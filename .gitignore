@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Environnement virtuel
+.env
+venv/
+
+# Données
+*.pkl
+data/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
