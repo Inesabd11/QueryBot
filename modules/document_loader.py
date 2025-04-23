@@ -159,7 +159,7 @@ def load_all_documents_from_directory(directory: str) -> List[Document]:
 
 if __name__ == "__main__":
     try:
-        content = load_all_documents_from_directory(os.path.join(DATA_DIR, "raw"))
+        content = load_document(os.path.join(DATA_DIR, "TestFile.txt"))
         for doc in content:
             print(doc.page_content[:300])
             print("-" * 50)
