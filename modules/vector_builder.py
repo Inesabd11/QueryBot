@@ -44,7 +44,7 @@ def build_index_from_directory(data_dir: str):
             print(f"⛔ Ignored (not a file): {filename}")
     
     # Final Check
-    print(f"📊 Total documents to index: {len(all_docs)}")
+    print(f"📄 Total documents to index: {len(all_docs)}")
     
     if all_docs:
         handler.save_vector_store(all_docs)

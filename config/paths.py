@@ -17,3 +17,9 @@ DOCS_EMBEDDINGS_PATH = os.path.join(EMBEDDINGS_DIR, "docs_embeddings.pkl")
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
+
+# Dossier pour stocker les historiques de chat
+STORAGE_DIR = os.path.join(BASE_DIR, "storage")
+
+# Dossier pour stocker les fichiers de modules
+MODULES_DIR = os.path.join(BASE_DIR, "modules")

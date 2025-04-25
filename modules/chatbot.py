@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+from pathlib import Path
 #from langchain.chains import ConversationalChain
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.vectorstores import FAISS
@@ -13,9 +15,11 @@ from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 #from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
-from pathlib import Path
+
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
+
+from chat_handler import save_message, load_history
 
 # Configuration from my setup
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
@@ -28,17 +32,21 @@ RETRIEVER_K = 4
 TEMPERATURE = 0.3
 MAX_TOKENS = 1024
 
+
 # Set NVIDIA API Key from environment variable or inline
 nvidia_api_key = "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"
 os.environ["NVIDIA_API_KEY"] = nvidia_api_key
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR
+from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR, STORAGE_DIR
+
+# #Chat history file
+# CHAT_HISTORY_FILE = Path("storage/chat_history.json")
 
 class Chatbot:
     def __init__(self):
-        print("🟡 inside chatbot init")
+        print("✅ Chatbot initialized")
 
         # Initialize HuggingFace embeddings
         self.embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
@@ -55,7 +63,8 @@ class Chatbot:
             openai_api_key=os.environ["NVIDIA_API_KEY"],
             openai_api_base=NVIDIA_BASE_URL,
         )
-
+        #self.chat_history = self.load_chat_history()
+        
         print("Trying to load FAISS from:", FAISS_INDEX_DIR)
 
         # Memory to hold the chat history
@@ -68,11 +77,12 @@ class Chatbot:
         if file:
             self.process_uploaded_file(file)
 
-        # Perform document retrieval (RAG-style)
+        # Retrieve documents for context (RAG-style)
         retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
         docs = retriever.get_relevant_documents(user_input)
         context = "\n".join([doc.page_content for doc in docs])
 
+        # Generate prompt
         prompt_template = PromptTemplate(
             input_variables = ["context", "question"],
             template = "Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
@@ -80,8 +90,12 @@ class Chatbot:
         prompt = prompt_template.format(context=context, question=user_input)
         response = self.llm.predict(prompt)
 
-        # Update memory
+        # Save to memory (LangChain memory)
         self.memory.save_context({"input": user_input}, {"output": response})
+        
+        # Save to persistent history
+        save_message("user", user_input)
+        save_message("bot", response)
 
         return response
 

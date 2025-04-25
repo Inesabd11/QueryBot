@@ -158,10 +158,25 @@ def load_all_documents_from_directory(directory: str) -> List[Document]:
 # --------------------------------------------------------------------
 
 if __name__ == "__main__":
-    try:
-        content = load_document(os.path.join(DATA_DIR, "TestFile.txt"))
-        for doc in content:
-            print(doc.page_content[:300])
-            print("-" * 50)
+    
+    try: 
+        directory_path = os.path.join(DATA_DIR, "raw")
+        all_docs = load_all_documents_from_directory(directory_path)
+        
+        for idx, doc in enumerate(all_docs):
+            print(f"📄 Document {idx + 1}")
+            print(doc.page_content[:300])  # Just previewing the first 300 characters
+            print("-" * 80)
+            
     except Exception as e:
-        logger.error(f"⚠️ Erreur: {e}")
+        logger.error(f"⚠️ Erreur lors du chargement des documents : {e}")
+
+
+# if __name__ == "__main__":
+#     try:
+#         content = load_document(os.path.join(DATA_DIR, "TestFile.txt"))
+#         for doc in content:
+#             print(doc.page_content[:300])
+#             print("-" * 50)
+#     except Exception as e:
+#         logger.error(f"⚠️ Erreur: {e}")
