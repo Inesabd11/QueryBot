@@ -9,7 +9,7 @@ from config.paths import STORAGE_DIR
 
 # Ensure storage directory exists
 os.makedirs(STORAGE_DIR, exist_ok=True)
-#print(f"Storage directory: {STORAGE_DIR}")
+
 
 #Chat history file
 HISTORY_FILE = Path(STORAGE_DIR) / "chat_history.json"
