@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
@@ -23,4 +26,13 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Define font-family utilities */
+.font-sans {
+  font-family: var(--font-geist), system-ui, sans-serif;
+}
+
+.font-inter {
+  font-family: var(--font-inter), sans-serif;
 }
