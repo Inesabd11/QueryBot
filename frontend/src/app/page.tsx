@@ -1,6 +1,11 @@
+
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { geist, inter } from './font';
+import { ThemeProvider } from '@/components/chat/theme/ThemeContext';
+import ChatContainer from '@/components/chat/ChatContainer';
+import ChatWindow from '@/components/ChatWindow';
+import ChatInput from '@/components/ChatInput';
+import { useChatStore } from '@/store/chatStore';
 import './globals.css';
 import { 
   Search, 
@@ -54,13 +59,15 @@ interface FileUpload {
   type: string;
 }
 
+type Theme = 'light' | 'blue-dark' | 'black-dark';
+
 // Main ChatBot Component
 export default function EnhancedChatBot() {
   // State Management
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<Theme>('light'); // Updated theme type
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,13 +98,17 @@ export default function EnhancedChatBot() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'dark' : 'light');
+      setTheme(prefersDark ? 'black-dark' : 'light');
     }
   }, []);
 
   // Apply theme class to body
   useEffect(() => {
-    document.body.className = theme === 'dark' ? 'dark' : '';
+    if (theme === 'black-dark' || theme === 'blue-dark') {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
   }, [theme]);
 
   // Refs
@@ -238,7 +249,11 @@ export default function EnhancedChatBot() {
 
   // Toggle Theme
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme(prevTheme => {
+      if (prevTheme === 'light') return 'blue-dark';
+      if (prevTheme === 'blue-dark') return 'black-dark';
+      return 'light';
+    });
   };
 
   // Clear Chat
@@ -266,6 +281,13 @@ export default function EnhancedChatBot() {
     }
   };
 
+  // Helper function to get theme classes
+  const getThemeClasses = (lightClasses: string, blueDarkClasses: string, blackDarkClasses: string) => {
+    if (theme === 'black-dark') return blackDarkClasses;
+    if (theme === 'blue-dark') return blueDarkClasses;
+    return lightClasses;
+  };
+
   // Render Methods
   const renderMessageBubble = (message: Message, index: number) => {
     const isUser = message.sender === 'user';
@@ -277,7 +299,11 @@ export default function EnhancedChatBot() {
         className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 items-end group`}
       >
         {!isUser && showSenderIcon && (
-          <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2 shadow-sm">
+          <div className={getThemeClasses(
+            "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2 shadow-sm", // Light mode
+            "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-700 flex items-center justify-center mr-2 shadow-sm", // Blue dark mode
+            "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center mr-2 shadow-sm" // Black dark mode
+          )}>
             <Bot className="h-5 w-5 text-white" />
           </div>
         )}
@@ -286,8 +312,13 @@ export default function EnhancedChatBot() {
           className={`
             relative max-w-[80%] p-3 rounded-2xl shadow-sm
             ${isUser 
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-sm' 
-              : 'bg-gradient-to-r from-purple-50 to-indigo-50 text-gray-800 dark:from-gray-700 dark:to-gray-800 dark:text-gray-100 rounded-tl-sm'}
+              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-sm' // User message (same for all themes)
+              : getThemeClasses(
+                  'bg-gradient-to-r from-purple-50 to-indigo-50 text-gray-800 rounded-tl-sm', // Light bot message
+                  'bg-gradient-to-r from-blue-800 to-indigo-900 text-gray-100 rounded-tl-sm', // Blue dark bot message
+                  'bg-gray-700 text-gray-100 rounded-tl-sm' // Black dark bot message
+                )
+            }
             transform transition-all duration-200 ease-in-out hover:scale-[1.01]
           `}
         >
@@ -353,7 +384,9 @@ export default function EnhancedChatBot() {
     <div 
       className={`
         flex h-screen overflow-hidden
-        ${theme === 'dark' ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-black'}
+        ${theme === 'black-dark' ? 'dark bg-gray-900 text-white' : 
+         theme === 'blue-dark' ? 'dark bg-gray-800 text-white' : 
+         'bg-gray-50 text-black'}
         transition-colors duration-300
       `}
     >
@@ -411,31 +444,37 @@ export default function EnhancedChatBot() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
-        {/* Header */}
-        <header 
-          className={`
-            flex justify-between items-center p-4 border-b
-            ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
-            shadow-sm z-10
-          `}
-        >
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-            >
-              {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
-            </button>
-            
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">QueryBot</h1>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
+{/* Header */}
+<header 
+  className={`
+    flex justify-between items-center p-4 border-b mt-4 rounded-xl
+    ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' : 
+     theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' : 
+     'bg-white border-gray-200'}
+    shadow-lg z-10
+  `}
+>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+    >
+      {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
+    </button>
+    
+    <div className="flex items-center gap-2">
+      <div className={getThemeClasses(
+        "h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center", // Light
+        "h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-700 flex items-center justify-center", // Blue dark
+        "h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center" // Black dark
+      )}>
+        <Bot className="h-5 w-5 text-white" />
+      </div>
+      <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">QueryBot</h1>
+    </div>
+  </div>
+  
+  <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <button 
               onClick={toggleTheme} 
@@ -474,7 +513,9 @@ export default function EnhancedChatBot() {
           <div 
             className={`
               p-3 border-b
-              ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+              ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' :
+               theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' :
+               'bg-white border-gray-200'}
               animate-fadeIn
             `}
           >
@@ -486,9 +527,9 @@ export default function EnhancedChatBot() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`
                   w-full p-2 pl-8 rounded-lg border 
-                  ${theme === 'dark' 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-gray-50 border-gray-200 text-black'}
+                  ${theme === 'light' 
+                    ? 'bg-gray-50 border-gray-200 text-black' 
+                    : 'bg-gray-700 border-gray-600 text-white'}
                   focus:outline-none focus:ring-2 focus:ring-blue-500
                 `}
               />
@@ -512,15 +553,21 @@ export default function EnhancedChatBot() {
         <div 
           ref={chatContainerRef}
           className={`
-            flex-1 overflow-y-auto p-4 
-            ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}
+            flex-1 overflow-y-auto p-4 rounded-xl shadow-lg
+            ${theme === 'black-dark' ? 'bg-gray-900' : 
+             theme === 'blue-dark' ? 'bg-gray-800' : 
+             'bg-gray-50'}
             relative
           `}
         >
           {filteredMessages.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center text-gray-400">
-              <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
-                <MessageCircle size={48} className="text-gray-400 dark:text-gray-500" />
+              <div className={getThemeClasses(
+                "w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center", // Light
+                "w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-blue-700 to-indigo-900 flex items-center justify-center", // Blue dark
+                "w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center" // Black dark
+              )}>
+                <MessageCircle size={48} className="text-gray-400 dark:text-gray-300" />
               </div>
               <h2 className="text-xl font-medium mb-2 text-gray-600 dark:text-gray-300">Start a conversation</h2>
               <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">
@@ -533,10 +580,18 @@ export default function EnhancedChatBot() {
                 {filteredMessages.map((message, index) => renderMessageBubble(message, index))}
                 {isLoading && (
                   <div className="flex justify-start mb-4 items-end">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2">
+                    <div className={getThemeClasses(
+                      "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2", // Light
+                      "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-700 flex items-center justify-center mr-2", // Blue dark
+                      "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center mr-2" // Black dark
+                    )}>
                       <Bot className="h-5 w-5 text-white" />
                     </div>
-                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-gray-700 dark:to-gray-800 p-3 rounded-2xl rounded-tl-sm shadow-sm">
+                    <div className={getThemeClasses(
+                      "bg-gradient-to-r from-purple-50 to-indigo-50 p-3 rounded-2xl rounded-tl-sm shadow-sm", // Light
+                      "bg-gradient-to-r from-blue-800 to-indigo-900 p-3 rounded-2xl rounded-tl-sm shadow-sm", // Blue dark
+                      "bg-gray-700 p-3 rounded-2xl rounded-tl-sm shadow-sm" // Black dark
+                    )}>
                       <div className="flex space-x-2">
                         <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-pulse"></div>
                         <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-pulse delay-75"></div>
@@ -566,7 +621,9 @@ export default function EnhancedChatBot() {
           <div 
             className={`
               flex gap-2 p-2 overflow-x-auto border-t
-              ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+              ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' : 
+               theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' : 
+               'bg-white border-gray-200'}
             `}
           >
             {uploadedFiles.map((upload, index) => (
@@ -606,13 +663,13 @@ export default function EnhancedChatBot() {
         {/* Input Area */}
         <div 
           className={`
-            p-4 border-t
-            ${theme === 'dark' 
-              ? 'bg-gray-800 border-gray-700' 
-              : 'bg-white border-gray-200'}
+            p-4 border-t rounded-xl shadow-lg mb-4
+            ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' : 
+             theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' : 
+             'bg-white border-gray-200'}
           `}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ">
             {/* File Upload */}
             <input 
               type="file" 
@@ -625,28 +682,15 @@ export default function EnhancedChatBot() {
               onClick={() => fileInputRef.current?.click()}
               className={`
                 p-2 rounded-full transition-colors duration-200
-                ${theme === 'dark' 
-                  ? 'hover:bg-gray-700 text-gray-300' 
-                  : 'hover:bg-gray-100 text-gray-600'}
+                ${theme === 'light'
+                  ? 'hover:bg-gray-100 text-gray-600' 
+                  : 'hover:bg-gray-700 text-gray-300'}
               `}
               aria-label="Upload file"
             >
               <UploadCloud size={20} />
             </button>
-
-            {/* Voice Input */}
-            <button 
-              className={`
-                p-2 rounded-full transition-colors duration-200
-                ${theme === 'dark' 
-                  ? 'hover:bg-gray-700 text-gray-300' 
-                  : 'hover:bg-gray-100 text-gray-600'}
-              `}
-              aria-label="Voice message"
-            >
-              <Mic size={20} />
-            </button>
-
+            
             {/* Text Input */}
             <div className="flex-1 relative">
               <textarea 
@@ -662,7 +706,7 @@ export default function EnhancedChatBot() {
                 rows={1}
                 className={`
                   w-full p-3 rounded-2xl shadow-sm resize-none
-                  ${theme === 'dark' 
+                  ${(theme === 'blue-dark' || theme === 'black-dark')
                     ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600' 
                     : 'bg-gray-50 text-black placeholder-gray-500 border-gray-200'}
                   focus:outline-none focus:ring-2 focus:ring-blue-500 border
@@ -760,427 +804,4 @@ const tailwindConfig = {
     },
   },
 };
-
-module.exports = tailwindConfig;
-
-
-
-
-
-
-
-
-
-
-
-// "use client";
-// import React, { useState, useEffect, useRef, useMemo } from 'react';
-// import { 
-//   Search, 
-//   Trash2, 
-//   UploadCloud, 
-//   Sun, 
-//   Moon, 
-//   Mic, 
-//   FileText, 
-//   Image, 
-//   X, 
-//   Download, 
-//   Settings, 
-//   MessageCircle 
-// } from 'lucide-react';
-
-// // Types for improved type safety
-// interface Message {
-//   id: string;
-//   content: string;
-//   sender: 'user' | 'bot';
-//   timestamp: number;
-//   type?: 'text' | 'file' | 'image';
-//   metadata?: {
-//     fileName?: string;
-//     fileType?: string;
-//     fileSize?: number;
-//     imageUrl?: string;
-//   };
-// }
-
-// interface FileUpload {
-//   file: File;
-//   preview: string;
-//   type: string;
-// }
-
-// // Main ChatBot Component
-// export default function EnhancedChatBot() {
-//   // State Management
-//   const [messages, setMessages] = useState<Message[]>([]);
-//   const [inputText, setInputText] = useState('');
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-//   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
-//   const [isSearching, setIsSearching] = useState(false);
-//   const [searchQuery, setSearchQuery] = useState('');
-//   const [language, setLanguage] = useState('en');
-
-//   // Refs
-//   const chatEndRef = useRef<HTMLDivElement>(null);
-//   const fileInputRef = useRef<HTMLInputElement>(null);
-
-//   // Scroll to bottom on new messages
-//   useEffect(() => {
-//     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-//   }, [messages]);
-
-//   // File Handling
-//   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-//     const files = event.target.files;
-//     if (files) {
-//       const newFiles: FileUpload[] = Array.from(files).map(file => ({
-//         file,
-//         preview: file.type.startsWith('image/') 
-//           ? URL.createObjectURL(file) 
-//           : getFileTypeIcon(file.type),
-//         type: file.type
-//       }));
-//       setUploadedFiles(prev => [...prev, ...newFiles]);
-//     }
-//   };
-
-//   // Send Message Function
-//   const sendMessage = async () => {
-//     if (inputText.trim() === '' && uploadedFiles.length === 0) return;
-
-//     setIsLoading(true);
-//     try {
-//       // Simulate message sending (replace with actual API call)
-//       const newMessage: Message = {
-//         id: `msg-${Date.now()}`,
-//         content: inputText,
-//         sender: 'user',
-//         timestamp: Date.now(),
-//         type: 'text'
-//       };
-
-//       setMessages(prev => [...prev, newMessage]);
-//       setInputText('');
-//       setUploadedFiles([]);
-
-//       // Simulate bot response (replace with actual AI response)
-//       setTimeout(() => {
-//         const botResponse: Message = {
-//           id: `msg-${Date.now()}`,
-//           content: `Received: ${inputText}`,
-//           sender: 'bot',
-//           timestamp: Date.now(),
-//           type: 'text'
-//         };
-//         setMessages(prev => [...prev, botResponse]);
-//         setIsLoading(false);
-//       }, 1000);
-//     } catch (error) {
-//       console.error('Message sending failed', error);
-//       setIsLoading(false);
-//     }
-//   };
-
-//   // Search Messages
-//   const filteredMessages = useMemo(() => {
-//     if (!searchQuery) return messages;
-//     return messages.filter(msg => 
-//       msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-//     );
-//   }, [messages, searchQuery]);
-
-//   // Theme Toggle
-//   const toggleTheme = () => {
-//     setTheme(prev => prev === 'light' ? 'dark' : 'light');
-//   };
-
-//   // Render Methods
-//   const renderMessageBubble = (message: Message) => {
-//     const isUser = message.sender === 'user';
-//     return (
-//       <div 
-//         key={message.id} 
-//         className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
-//       >
-//         <div 
-//           className={`
-//             max-w-[70%] p-3 rounded-lg 
-//             ${isUser 
-//               ? 'bg-blue-500 text-white' 
-//               : 'bg-gray-200 text-black dark:bg-gray-700 dark:text-white'}
-//           `}
-//         >
-//           {message.type === 'text' && <p>{message.content}</p>}
-//           {message.type === 'image' && (
-//             <img 
-//               src={message.metadata?.imageUrl} 
-//               alt="Uploaded" 
-//               className="max-w-full rounded-md"
-//             />
-//           )}
-//           {message.type === 'file' && (
-//             <div className="flex items-center">
-//               <FileText className="mr-2" />
-//               <span>{message.metadata?.fileName}</span>
-//             </div>
-//           )}
-//           <div className="text-xs opacity-70 mt-1 text-right">
-//             {new Date(message.timestamp).toLocaleTimeString()}
-//           </div>
-//         </div>
-//       </div>
-//     );
-//   };
-
-//   // Render
-//   return (
-//     <div 
-//       className={`
-//         flex flex-col h-screen 
-//         ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-black'}
-//         transition-colors duration-300
-//       `}
-//     >
-//       {/* Header */}
-//       <header 
-//         className={`
-//           flex justify-between items-center p-4 
-//           ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}
-//           shadow-md z-10
-//         `}
-//       >
-//         <div className="flex items-center gap-4">
-//           <MessageCircle className="text-blue-500" size={24} />
-//           <h1 className="text-xl font-bold">QueryBot</h1>
-//         </div>
-        
-//         <div className="flex items-center gap-3">
-//           {/* Theme Toggle */}
-//           <button 
-//             onClick={toggleTheme} 
-//             className="hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded-full"
-//           >
-//             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-//           </button>
-
-//           {/* Search Toggle */}
-//           <button 
-//             onClick={() => setIsSearching(!isSearching)}
-//             className="hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded-full"
-//           >
-//             <Search size={20} />
-//           </button>
-
-//           {/* Clear History */}
-//           <button 
-//             onClick={() => setMessages([])}
-//             className="hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded-full"
-//           >
-//             <Trash2 size={20} />
-//           </button>
-//         </div>
-//       </header>
-
-//       {/* Search Bar */}
-//       {isSearching && (
-//         <div 
-//           className={`
-//             p-3 
-//             ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}
-//           `}
-//         >
-//           <input 
-//             type="text"
-//             placeholder="Search messages..."
-//             value={searchQuery}
-//             onChange={(e) => setSearchQuery(e.target.value)}
-//             className={`
-//               w-full p-2 rounded-md 
-//               ${theme === 'dark' 
-//                 ? 'bg-gray-700 text-white' 
-//                 : 'bg-white text-black border'}
-//             `}
-//           />
-//         </div>
-//       )}
-
-//       {/* Chat Messages */}
-//       <div 
-//         className={`
-//           flex-1 overflow-y-auto p-4 
-//           ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}
-//         `}
-//       >
-//         {filteredMessages.length === 0 ? (
-//           <div className="h-full flex flex-col justify-center items-center text-gray-400">
-//             <UploadCloud size={48} className="mb-4" />
-//             <p>Start a conversation or upload a document</p>
-//           </div>
-//         ) : (
-//           filteredMessages.map(renderMessageBubble)
-//         )}
-//         <div ref={chatEndRef} />
-//       </div>
-
-//       {/* File Preview */}
-//       {uploadedFiles.length > 0 && (
-//         <div 
-//           className={`
-//             flex gap-2 p-2 overflow-x-auto 
-//             ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}
-//           `}
-//         >
-//           {uploadedFiles.map((upload, index) => (
-//             <div 
-//               key={index} 
-//               className="relative flex-shrink-0 w-20 h-20 rounded-md overflow-hidden"
-//             >
-//               {upload.type.startsWith('image/') ? (
-//                 <img 
-//                   src={upload.preview} 
-//                   alt="Preview" 
-//                   className="w-full h-full object-cover"
-//                 />
-//               ) : (
-//                 <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-//                   <FileText size={32} />
-//                 </div>
-//               )}
-//               <button 
-//                 onClick={() => {
-//                   setUploadedFiles(prev => 
-//                     prev.filter((_, i) => i !== index)
-//                   );
-//                 }}
-//                 className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full"
-//               >
-//                 <X size={12} />
-//               </button>
-//             </div>
-//           ))}
-//         </div>
-//       )}
-
-//       {/* Input Area */}
-//       <div 
-//         className={`
-//           p-4 border-t 
-//           ${theme === 'dark' 
-//             ? 'bg-gray-800 border-gray-700' 
-//             : 'bg-white border-gray-200'}
-//         `}
-//       >
-//         <div className="flex items-center gap-2">
-//           {/* File Upload */}
-//           <input 
-//             type="file" 
-//             ref={fileInputRef}
-//             onChange={handleFileUpload}
-//             multiple
-//             className="hidden"
-//           />
-//           <button 
-//             onClick={() => fileInputRef.current?.click()}
-//             className={`
-//               p-2 rounded-full 
-//               ${theme === 'dark' 
-//                 ? 'hover:bg-gray-700' 
-//                 : 'hover:bg-gray-100'}
-//             `}
-//           >
-//             <UploadCloud size={20} />
-//           </button>
-
-//           {/* Voice Input */}
-//           <button 
-//             className={`
-//               p-2 rounded-full 
-//               ${theme === 'dark' 
-//                 ? 'hover:bg-gray-700' 
-//                 : 'hover:bg-gray-100'}
-//             `}
-//           >
-//             <Mic size={20} />
-//           </button>
-
-//           {/* Text Input */}
-//           <input 
-//             type="text"
-//             value={inputText}
-//             onChange={(e) => setInputText(e.target.value)}
-//             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-//             placeholder="Type your message..."
-//             className={`
-//               flex-1 p-2 rounded-md 
-//               ${theme === 'dark' 
-//                 ? 'bg-gray-700 text-white placeholder-gray-400' 
-//                 : 'bg-gray-100 text-black'}
-//             `}
-//           />
-
-//           {/* Send Button */}
-//           <button 
-//             onClick={sendMessage}
-//             disabled={isLoading}
-//             className={`
-//               p-2 rounded-full 
-//               ${isLoading 
-//                 ? 'opacity-50 cursor-not-allowed' 
-//                 : 'hover:bg-blue-600 bg-blue-500 text-white'}
-//             `}
-//           >
-//             {isLoading ? (
-//               <div className="animate-spin">🔄</div>
-//             ) : (
-//               '➤'
-//             )}
-//           </button>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// // Utility function to get file type icon
-// function getFileTypeIcon(fileType: string): string {
-//   const iconMap: {[key: string]: string} = {
-//     'application/pdf': '📄',
-//     'text/plain': '📝',
-//     'application/msword': '📄',
-//     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📄',
-//     'application/vnd.ms-excel': '📊',
-//     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '📊'
-//   };
-//   return iconMap[fileType] || '📁';
-// }
-
-// // Optional: Add Error Boundary for better error handling
-// function ErrorBoundary({ children }: { children: React.ReactNode }) {
-//   const [hasError, setHasError] = useState(false);
-
-//   useEffect(() => {
-//     const errorHandler = (error: ErrorEvent) => {
-//       console.error('Uncaught error:', error);
-//       setHasError(true);
-//     };
-
-//     window.addEventListener('error', errorHandler);
-//     return () => window.removeEventListener('error', errorHandler);
-//   }, []);
-
-//   if (hasError) {
-//     return (
-//       <div className="flex items-center justify-center h-screen bg-red-100 text-red-600">
-//         <div className="text-center">
-//           <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
-//           <p>Please refresh the page or try again later.</p>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return <>{children}</>;
-// }
+//...

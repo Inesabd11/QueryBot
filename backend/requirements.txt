@@ -1,6 +1,20 @@
+# Backend dependencies
+
 langchain>=0.2.2
-gradio>=4.0.0
+langchainhub
+langchain-openai
 openai
 sentence-transformers
 faiss-cpu
 python-dotenv
+PyPDF2
+python-docx
+pandas
+numpy
+fastapi
+uvicorn
+websockets
+python-multipart
+
+# Gradio is optional ( to keep the old interface )
+gradio>=4.0.0

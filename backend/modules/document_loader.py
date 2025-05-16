@@ -5,8 +5,13 @@ from abc import ABC, abstractmethod
 import logging
 # files format imports
 import PyPDF2 
+import json
+from PIL import Image
+import openpyxl
 from docx import Document as DocxDocument
+import textract
 import pandas as pd 
+import pytesseract
 #langchain
 from langchain.schema import Document
 
@@ -47,18 +52,129 @@ class PDFLoader(DocumentLoader):
         logger.info(f"✅ PDF chargé: {file_path}")
         
         return [Document(page_content=text, metadata={"source": file_path})]
+    
+# PNG, JPG, JPEG    
+class ImageLoader(DocumentLoader):
+    """
+    Unified image loader for PNG, JPG and JPEG formats.
+    Uses OCR (pytesseract) to extract text from images.
+    """
+    # Supported image formats
+    SUPPORTED_FORMATS = ['.png', '.jpg', '.jpeg']
+    
+    def load(self, file_path: str) -> List[Document]:
+        """
+        Load an image file and extract text using OCR.
+        
+        Args:
+            file_path: Path to the image file
+            
+        Returns:
+            List containing a Document with extracted text and metadata
+            
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            ValueError: If the file format is not supported
+        """
+        # Check if file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
+            
+        # Check if file format is supported
+        file_ext = os.path.splitext(file_path)[1].lower()
+        if file_ext not in self.SUPPORTED_FORMATS:
+            raise ValueError(f"Format de fichier non pris en charge: {file_ext}. Formats pris en charge: {', '.join(self.SUPPORTED_FORMATS)}")
+        
+        # Load image and extract text
+        image = Image.open(file_path)
+        text = pytesseract.image_to_string(image)
+        
+        # Log successful loading based on file format
+        format_name = file_ext.upper().replace('.', '')
+        logger.info(f"✅ {format_name} chargé: {file_path}")
+        
+        return [Document(page_content=text, metadata={"source": file_path})]
+    
+#xls & xlsx
+class ExcelLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
 
-#DOCX
-class DOCXLoader(DocumentLoader):
+        # Get file extension for logging
+        _, extension = os.path.splitext(file_path)
+        extension = extension.lower()
+        file_type = extension[1:].upper()  # Remove the dot and convert to uppercase
+        
+        # Load the workbook - openpyxl works for both .xlsx and newer .xls files
+        try:
+            wb = openpyxl.load_workbook(file_path)
+            sheet = wb.active
+            text = ""
+
+            for row in sheet.iter_rows(values_only=True):
+                text += " | ".join([str(cell) for cell in row if cell is not None]) + "\n"
+                
+        except Exception as e:
+            # If openpyxl fails for older .xls files, you might need to use xlrd
+            if extension == '.xls':
+                import xlrd
+                wb = xlrd.open_workbook(file_path)
+                sheet = wb.sheet_by_index(0)
+                text = ""
+                
+                for row_idx in range(sheet.nrows):
+                    row_values = [str(sheet.cell_value(row_idx, col_idx)) for col_idx in range(sheet.ncols) 
+                                 if sheet.cell_value(row_idx, col_idx) is not None]
+                    text += " | ".join(row_values) + "\n"
+            else:
+                # If it's not an .xls file, re-raise the exception
+                raise e
+
+        logger.info(f"✅ {file_type} chargé: {file_path}")
+        return [Document(page_content=text, metadata={"source": file_path})]
+
+#JSON
+class JSONLoader(DocumentLoader):
     def load(self, file_path: str) -> List[Document]:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f" Le fichier {file_path} n'existe pas.")
-        doc = DocxDocument(file_path)
-        text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-        
-        logger.info(f"✅ DOCX chargé: {file_path}")
+
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+
+        text = json.dumps(data, ensure_ascii=False)
+
+        logger.info(f"✅ JSON chargé: {file_path}")
         return [Document(page_content=text, metadata={"source": file_path})]
-    
+
+
+#DOCX & DOC
+class WordDocumentLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
+        
+        # Get file extension
+        _, extension = os.path.splitext(file_path)
+        extension = extension.lower()
+        
+        # Process based on file extension
+        if extension == '.docx':
+            # DOCX handling with python-docx
+            doc = DocxDocument(file_path)
+            text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+            file_type = "DOCX"
+        elif extension == '.doc':
+            # DOC handling with textract
+            text = textract.process(file_path).decode('utf-8')
+            file_type = "DOC"
+        else:
+            raise ValueError(f"Format de fichier non pris en charge: {extension}")
+        
+        logger.info(f"✅ {file_type} chargé: {file_path}")
+        return [Document(page_content=text, metadata={"source": file_path})]
+
 #CSV
 class CSVLoader(DocumentLoader):
     def load(self, file_path: str) -> List[Document]:
@@ -104,12 +220,18 @@ class DocumentLoaderFactory:
 
         if extension == '.pdf':
             return PDFLoader()
-        elif extension == '.docx':
-            return DOCXLoader()
+        elif extension in ['.docx', '.doc']:
+            return WordDocumentLoader()
         elif extension == '.csv':
             return CSVLoader()
         elif extension == '.txt':
             return TXTLoader()
+        elif extension in ['.png', '.jpg', '.jpeg']:
+            return ImageLoader()
+        elif extension in ['.xls', '.xlsx']:
+            return ExcelLoader()
+        elif extension == '.json':
+            return JSONLoader()
         else:
             raise ValueError(f"❌ Le format {extension} n'est pas supporté.")
 

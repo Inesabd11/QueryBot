@@ -1,3 +1,4 @@
+# modules/chatbot.py
 import os
 import sys
 
@@ -18,8 +19,8 @@ from langchain.memory import ConversationBufferMemory
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
-
-from chat_handler import save_message
+from io import BytesIO
+import tempfile
 
 # Configuration from my setup
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
@@ -40,6 +41,8 @@ os.environ["NVIDIA_API_KEY"] = nvidia_api_key
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR
+from chat_handler import save_message, load_history
+from document_loader import load_document, DocumentLoaderFactory
 
 # #Chat history file
 # CHAT_HISTORY_FILE = Path("storage/chat_history.json")
@@ -52,8 +55,17 @@ class Chatbot:
         self.embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
         # Load FAISS vector store
-        
-        self.vector_store = FAISS.load_local(FAISS_INDEX_DIR, self.embedding_model,allow_dangerous_deserialization=True)
+        try:
+            self.vector_store = FAISS.load_local(FAISS_INDEX_DIR, self.embedding_model, allow_dangerous_deserialization=True)
+            print(f"✅ FAISS vector store loaded from {FAISS_INDEX_DIR}")
+        except Exception as e:
+            print(f"⚠️ Could not load FAISS vector store: {e}")
+            # Initialize an empty vector store
+            self.vector_store = FAISS.from_documents([Document(page_content="Initialized empty vector store.", metadata={"source": "init"})], self.embedding_model)
+            os.makedirs(os.path.dirname(FAISS_INDEX_DIR), exist_ok=True)
+            self.vector_store.save_local(FAISS_INDEX_DIR)
+            print(f"✅ Created new empty FAISS vector store at {FAISS_INDEX_DIR}")
+            
         
         # Setup LangChain LLM using NVIDIA's API and Mixtral
         self.llm = ChatOpenAI(
@@ -63,34 +75,10 @@ class Chatbot:
             openai_api_key=os.environ["NVIDIA_API_KEY"],
             openai_api_base=NVIDIA_BASE_URL,
         )
-        #self.chat_history = self.load_chat_history()
-        #print("Trying to load FAISS from:", FAISS_INDEX_DIR)
-
+        
         # Memory to hold the chat history
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-        
-        self.prompt_template = PromptTemplate(
-            input_variables=["context", "question"],
-            template="Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
-        )
-        self.retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
-        self.chain = (
-            RunnableMap({
-                "context": lambda x: self._get_context(x["question"]),
-                "question": lambda x: x["question"],
-            })
-            | self.prompt_template
-            | self.llm
-        )
-    
-    def _get_context(self, question):
-        """
-        Retrieves relevant documents from the vector store based on the question.
-        """
-        docs = self.retriever.get_relevant_documents(question)
-        context = "\n".join([doc.page_content for doc in docs])
-        return context
-    
+
     def get_response(self, user_input, file=None):
         """
         Generates a response using the Mixtral model and optionally updates vector store with uploaded file.
@@ -98,60 +86,82 @@ class Chatbot:
         if file:
             self.process_uploaded_file(file)
 
-        response = self.chain.invoke({"question": user_input})
+        # Retrieve documents for context (RAG-style)
+        retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
+        docs = retriever.get_relevant_documents(user_input)
         
-        #Memory update
+        # Format the context from retrieved documents
+        if docs:
+            context = "\n\n".join([f"Document: {doc.metadata.get('source', 'Unknown')}\nContent: {doc.page_content}" for doc in docs])
+        else:
+            context = "No relevant documents found."
+
+        # Generate prompt
+        prompt_template = PromptTemplate(
+            input_variables=["context", "question"],
+            template="""You are QueryBot, an AI assistant that helps users find information in their documents.
+            
+Context:
+{context}
+
+Question:
+{question}
+
+Answer the question based on the context provided. If the answer cannot be found in the context, say so clearly."""
+        )
+        
+        prompt = prompt_template.format(context=context, question=user_input)
+        response = self.llm.predict(prompt)
+
+        # Save to memory (LangChain memory)
         self.memory.save_context({"input": user_input}, {"output": response})
-        # Save to persistent history    
-        save_message("user", user_input)
-        save_message("assistant", response) 
+        
         
         return response
-    
+
     def process_uploaded_file(self, file):
         """
-        Processes a text file and adds its content to the vector store.
+        Processes an uploaded file and adds its content to the vector store.
         """
-        file_content = file.read().decode("utf-8")
-        doc = Document(page_content=file_content, metadata={"source": file.name})
-        self.vector_store.add_documents([doc])
-        self.vector_store.save_local(FAISS_INDEX_DIR)
-        
-
-    # def get_response(self, user_input, file=None):
-    #     """
-    #     Generates a response using the Mixtral model and optionally updates vector store with uploaded file.
-    #     """
-    #     if file:
-    #         self.process_uploaded_file(file)
-
-    #     # Retrieve documents for context (RAG-style)
-    #     retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
-    #     docs = retriever.get_relevant_documents(user_input)
-    #     context = "\n".join([doc.page_content for doc in docs])
-
-    #     # Generate prompt
-    #     prompt_template = PromptTemplate(
-    #         input_variables = ["context", "question"],
-    #         template = "Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
-    #     )
-    #     prompt = prompt_template.format(context=context, question=user_input)
-    #     response = self.llm.predict(prompt)
-
-    #     # Save to memory (LangChain memory)
-    #     self.memory.save_context({"input": user_input}, {"output": response})
-        
-    #     # Save to persistent history
-    #     save_message("user", user_input)
-    #     save_message("assistant", response)
-
-    #     return response
-
-    # def process_uploaded_file(self, file):
-    #     """
-    #     Processes a text file and adds its content to the vector store.
-    #     """
-    #     file_content = file.read().decode("utf-8")
-    #     doc = Document(page_content=file_content, metadata={"source": file.name})
-    #     self.vector_store.add_documents([doc])
-
+        try:
+            # Handle different file types based on file content
+            if isinstance(file, BytesIO):
+                # This is a file-like object from FastAPI
+                file_content = file.read()
+                file_name = getattr(file, "filename", "uploaded_file")
+                
+                # Create a temporary file to process
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_name)[1]) as temp_file:
+                    temp_file.write(file_content)
+                    temp_path = temp_file.name
+                
+                # Process the file using your document loader
+                try:
+                    docs = load_document(temp_path)
+                    os.unlink(temp_path)  # Delete the temporary file
+                    
+                    # Add documents to the vector store
+                    self.vector_store.add_documents(docs)
+                    self.vector_store.save_local(FAISS_INDEX_DIR)
+                    return f"File '{file_name}' successfully processed and added to the vector store."
+                except Exception as e:
+                    os.unlink(temp_path)  # Ensure temp file is deleted even if processing fails
+                    raise e
+            else:
+                # This is a direct file path or a string
+                if hasattr(file, 'name'):
+                    # This is likely a file object from Gradio
+                    file_content = file.read().decode("utf-8")
+                    doc = Document(page_content=file_content, metadata={"source": file.name})
+                    self.vector_store.add_documents([doc])
+                    self.vector_store.save_local(FAISS_INDEX_DIR)
+                    return f"File '{file.name}' successfully processed."
+                else:
+                    # This is likely a string path
+                    docs = load_document(file)
+                    self.vector_store.add_documents(docs)
+                    self.vector_store.save_local(FAISS_INDEX_DIR)
+                    return f"File '{file}' successfully processed."
+        except Exception as e:
+            raise Exception(f"Error processing file: {str(e)}")
+    

@@ -1,90 +1,69 @@
-// frontend/src/components/ChatWindow.tsx
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { useChatStore } from '../store/chatStore';
 import ChatMessage from './ChatMessage';
-import { ArrowDown } from 'lucide-react';
-
-interface ChatWindowProps {
-  messages: Array<{
-    role: string;
-    message: string;
-    timestamp: string;
-  }>;
-  isLoading: boolean;
-}
-
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading }) => {
+//
+export default function ChatWindow() {
+  const { 
+    messages, 
+    hasError, 
+    errorMessage,
+    clearError,
+    isLoading
+  } = useChatStore();
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [showScrollButton, setShowScrollButton] = React.useState(false);
-
-  // Scroll to bottom when new messages are added
+  
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages]);
-
-  // Check scroll position to show/hide scroll button
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
-      setShowScrollButton(!isNearBottom);
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  }, [messages]);
+  
   return (
-    <div className="relative flex-1 overflow-hidden">
-      <div 
-        ref={containerRef}
-        className="h-full overflow-y-auto p-4 space-y-4"
-      >
-        {messages.map((msg, index) => (
-          <ChatMessage key={index} message={msg} />
-        ))}
-        
-        {isLoading && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-gray-200 text-gray-800 rounded-lg px-4 py-2 max-w-[70%]">
-              <div className="flex items-center">
-                <span className="font-semibold">QueryBot</span>
-                <div className="ml-2 flex space-x-1">
-                  <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" 
-                       style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" 
-                       style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" 
-                       style={{ animationDelay: '300ms' }}></div>
-                </div>
-              </div>
-            </div>
+    <div className="flex-1 overflow-y-auto p-4">
+      {messages.length === 0 ? (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">Welcome to QueryBot</h2>
+            <p>Start chatting or upload a document to begin</p>
           </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
-      
-      {showScrollButton && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-4 right-4 bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600 transition-colors"
-          aria-label="Scroll to bottom"
-        >
-          <ArrowDown size={20} />
-        </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {messages.map((message, index) => (
+            <ChatMessage key={index} message={message} />
+          ))}
+          
+          {isLoading && (
+            <div className="flex items-center text-gray-500 italic">
+              <div className="animate-pulse flex space-x-1">
+                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+              </div>
+              <span className="ml-2">QueryBot is thinking...</span>
+            </div>
+          )}
+        </div>
       )}
+      
+      {hasError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{errorMessage}</span>
+          <button
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+            onClick={clearError}
+            aria-label="Close error message"
+          >
+            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <title>Close</title>
+              <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+            </svg>
+          </button>
+        </div>
+      )}
+      
+      <div ref={messagesEndRef} />
     </div>
   );
-};
-
-export default ChatWindow;
+}

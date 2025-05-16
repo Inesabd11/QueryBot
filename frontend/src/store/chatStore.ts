@@ -3,8 +3,8 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 interface Message {
-  role: 'user' | 'assistant' | 'system';
-  message: string;
+  role: 'user' | 'assistant' | 'bot';
+  content: string;
   timestamp: string;
 }
 
@@ -13,8 +13,11 @@ interface ChatState {
   isLoading: boolean;
   error: string | null;
   socket: WebSocket | null;
+  hasError: boolean;
+  errorMessage: string;
   
-  // Actions
+  // Add missing function definitions to the interface
+  clearError: () => void;
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
   sendMessage: (content: string) => Promise<void>;
@@ -32,81 +35,91 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   error: null,
   socket: null,
+  hasError: false,
+  errorMessage: '',
+  
+  clearError: () => set({ hasError: false, errorMessage: '', error: null }),
 
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages: Message[]) => set({ messages }),
 
-  addMessage: (message) => set((state) => ({ 
-    messages: [...state.messages, message] 
+  addMessage: (message: Message) => set((state) => ({
+    messages: [...state.messages, message]
   })),
 
-  sendMessage: async (content) => {
+  sendMessage: async (content: string) => {
     const userMessage: Message = {
       role: 'user',
-      message: content,
+      content: content,
       timestamp: new Date().toISOString()
     };
 
-    set((state) => ({ 
+    set((state) => ({
       messages: [...state.messages, userMessage],
-      isLoading: true 
+      isLoading: true
     }));
 
-    // WebSocket handling with proper null checks
-    const { socket } = get();
+  const { socket } = get();
     if (socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(userMessage));
       return;
     }
 
-    // Fallback to HTTP API
-    try {
-      const response = await axios.post(`${API_URL}/api/chat`, { message: content });
+  try {
+      const response = await axios.post(`${API_URL}/api/chat`, { content: content });
       const botMessage: Message = {
         role: 'assistant',
-        message: response.data.response,
+        content: response.data.response,
         timestamp: new Date().toISOString()
       };
       set((state) => ({
         messages: [...state.messages, botMessage],
-        isLoading: false
+        isLoading: false,
+        hasError: false,
+        errorMessage: ''
       }));
     } catch (error) {
       console.error('Error sending message:', error);
-      set({ 
-        error: 'Failed to send message',
-        isLoading: false
+      set({
+        error: error instanceof Error ? error.message : 'Failed to send message',
+        isLoading: false,
+        hasError: true,
+        errorMessage: 'Failed to send message'
       });
     }
   },
 
-  uploadFile: async (file) => {
+  uploadFile: async (file: File) => {
     set({ isLoading: true });
-    
+
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       await axios.post(`${API_URL}/api/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
-      
+
       const systemMessage: Message = {
-        role: 'system',
-        message: `File '${file.name}' uploaded successfully. I can now answer questions based on its content.`,
+        role: 'bot',
+        content: `File '${file.name}' uploaded successfully. I can now answer questions based on its content.`,
         timestamp: new Date().toISOString()
       };
-      
+
       set((state) => ({
         messages: [...state.messages, systemMessage],
-        isLoading: false
+        isLoading: false,
+        hasError: false,
+        errorMessage: ''
       }));
     } catch (error) {
       console.error('Error uploading file:', error);
-      set({ 
-        error: 'Failed to upload file',
-        isLoading: false
+      set({
+        error: error instanceof Error ? error.message : 'Failed to upload file',
+        isLoading: false,
+        hasError: true,
+        errorMessage: 'Failed to upload file'
       });
     }
   },
@@ -117,49 +130,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ messages: [] });
     } catch (error) {
       console.error('Error clearing history:', error);
-      set({ error: 'Failed to clear history' });
+      set({
+        error: error instanceof Error ? error.message : 'Failed to clear history',
+        hasError: true,
+        errorMessage: 'Failed to clear history'
+      });
     }
   },
 
   connectWebSocket: () => {
-    // Close existing connection if any
-    get().socket?.close();
+    // Close existing connection if it exists
+    get().disconnectWebSocket();
 
     const socket = new WebSocket(WS_URL);
-    
+
     socket.onopen = () => {
       console.log('WebSocket connection established');
+      set({ socket });
     };
-    
+
     socket.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as Message;
-        if (data.role === 'assistant') {
-          set((state) => ({
-            messages: [...state.messages, data],
-            isLoading: false
-          }));
-        }
+        const message: Message = JSON.parse(event.data);
+        set((state) => ({
+          messages: [...state.messages, message],
+          isLoading: false
+        }));
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
+        set({
+          error: 'Failed to parse WebSocket message',
+          hasError: true,
+          errorMessage: 'Failed to parse WebSocket message'
+        });
       }
     };
-    
+
     socket.onclose = () => {
       console.log('WebSocket connection closed');
+      set({ socket: null });
     };
-    
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      set({ error: 'WebSocket connection error' });
+
+    socket.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      set({
+        error: 'WebSocket connection error',
+        hasError: true,
+        errorMessage: 'WebSocket connection error'
+      });
     };
-    
-    set({ socket });
-  },
-  
+   },
+
   disconnectWebSocket: () => {
     const { socket } = get();
-    if (socket) {
+    if (socket && socket.readyState !== WebSocket.CLOSED) {
       socket.close();
       set({ socket: null });
     }

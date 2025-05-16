@@ -1,40 +1,44 @@
 import os
 import sys
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 # Project root path
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
-from ui.chat_ui import create_ui
+from routers import chat, documents
+from config.paths import UPLOADS_DIR, STORAGE_DIR, VECTOR_STORE_DIR
 
-demo = create_ui()
-demo.launch(debug=True)
+# Ensure required directories exist
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(STORAGE_DIR, exist_ok=True)
+os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
 
+# Create FastAPI app
+app = FastAPI(
+    title="QueryBot API",
+    description="API for QueryBot, a document assistant powered by RAG",
+    version="1.0.0",
+)
 
+# Add CORS middleware to allow requests from frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Next.js frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+# Include routers
+app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(documents.router, prefix="/api", tags=["documents"])
 
-# import gradio as gr
-# from modules.chatbot import Chatbot  # Import the chatbot class that will process user input
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to QueryBot API", "status": "running"}
 
-# # Initialize the chatbot (this will be fleshed out later in chatbot.py)
-# chatbot = Chatbot()
-
-# def chatbot_interface(user_input, file=None):
-#     """
-#     This function processes the user input and file upload, then returns the chatbot's response.
-#     """
-#     response = chatbot.get_response(user_input, file)  # Call the chatbot to get the response
-#     return response
-
-# # Define the Gradio interface
-# iface = gr.Interface(
-#     fn=chatbot_interface,  # The function to handle user input
-#     inputs=[
-#         gr.Textbox(label="Enter your message", placeholder="Ask me anything..."),  # Text input for the user
-#         gr.File(label="Upload File (optional)")  # File upload option for documents
-#     ],
-#     outputs="text",  # Output will be in text form
-#     live=True  # Whether the chatbot responds as the user types
-# )
-
-# # Launch the Gradio interface
-# iface.launch(debug=True)
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
