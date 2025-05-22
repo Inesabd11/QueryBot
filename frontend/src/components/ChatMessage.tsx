@@ -30,6 +30,7 @@ export default function ChatMessage({ message }: ChatMessageType) {
             {new Date(message.timestamp).toLocaleTimeString()}
           </div>
         )}
+        
       </div>
     </div>
   );

@@ -15,6 +15,18 @@ fastapi
 uvicorn
 websockets
 python-multipart
+langchain
+langchain-community
+fastapi
+uvicorn
+python-multipart
+openpyxl
+python-docx
+Pillow
+PyPDF2
+sentence-transformers
+faiss-cpu
+pydantic
 
 # Gradio is optional ( to keep the old interface )
 gradio>=4.0.0

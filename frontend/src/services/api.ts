@@ -14,7 +14,7 @@ export interface ChatResponse {
 
 export const sendMessage = async (message: string, chatHistory: ChatMessage[] = []): Promise<ChatResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/chat`, {
+    const response = await fetch(`${API_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,7 +41,7 @@ export const uploadDocument = async (file: File): Promise<{success: boolean, mes
   formData.append('file', file);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+    const response = await fetch(`${API_BASE_URL}/api/upload`, {
       method: 'POST',
       body: formData,
     });

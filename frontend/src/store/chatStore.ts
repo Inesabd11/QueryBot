@@ -2,10 +2,44 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
+export interface Source {
+  title: string;
+  content: string;
+  similarity: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'bot';
+  content: string;
+  timestamp: string;
+  type?: 'text' | 'file';
+  metadata?: {
+    sources?: Source[];
+  };
+}
+
+interface RAGResponse {
+  content: string;
+  sources?: {
+    title: string;
+    content: string;
+    similarity: number;
+  }[];
+}
+
 interface Message {
   role: 'user' | 'assistant' | 'bot';
   content: string;
   timestamp: string;
+  metadata?: {
+    sources?: Array<{
+      title: string;
+      content: string;
+      similarity: number; // check if this is required 
+    }>;
+    confidence?: number; // check if this is required
+  };
 }
 
 interface ChatState {
@@ -65,11 +99,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
   try {
-      const response = await axios.post(`${API_URL}/api/chat`, { content: content });
+      const response = await axios.post<RAGResponse>(`${API_URL}/api/chat`, {
+        message: content,
+        use_rag: true
+      });
+
       const botMessage: Message = {
-        role: 'assistant',
-        content: response.data.response,
-        timestamp: new Date().toISOString()
+      role: 'assistant',
+      content: response.data.content,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        sources: response.data.sources
+        }
       };
       set((state) => ({
         messages: [...state.messages, botMessage],
@@ -87,7 +128,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
     }
   },
-
+  // Function to upload a file
   uploadFile: async (file: File) => {
     set({ isLoading: true });
 
@@ -95,17 +136,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const formData = new FormData();
       formData.append('file', file);
 
-      await axios.post(`${API_URL}/api/upload`, formData, {
+      // Add metadata about the file if needed
+      formData.append('process_type', 'rag');  // Tell backend this is for RAG
+    
+      const response = await axios.post(`${API_URL}/api/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
       const systemMessage: Message = {
-        role: 'bot',
-        content: `File '${file.name}' uploaded successfully. I can now answer questions based on its content.`,
-        timestamp: new Date().toISOString()
-      };
+      role: 'bot',
+      content: `File '${file.name}' has been processed and added to the knowledge base. You can now ask questions about it.`,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        sources: response.data.sources || []  // If backend returns processed chunks info
+      }
+    };
 
       set((state) => ({
         messages: [...state.messages, systemMessage],

@@ -1,11 +1,12 @@
-
+//
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ThemeProvider } from '@/components/chat/theme/ThemeContext';
-import ChatContainer from '@/components/chat/ChatContainer';
-import ChatWindow from '@/components/ChatWindow';
-import ChatInput from '@/components/ChatInput';
-import { useChatStore } from '@/store/chatStore';
+import { ThemeProvider, useTheme } from '@/components/chat/theme/ThemeContext';
+import ChatHistory from '@/components/ChatHistory';
+import {ErrorBoundary} from '@/components/ErrorBoundary';
+import { ChatHistoryContainer } from '@/components/ChatHistory';
+import { SourceDisplay } from '@/components/SourcesDisplay';
+import { BotMessageSquare, MessageCircleMore  } from 'lucide-react'
 import './globals.css';
 import { 
   Search, 
@@ -30,11 +31,11 @@ import {
   Trash
 } from 'lucide-react';
 
-// Types for improved type safety
+
 interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'bot';
+  sender: 'user' | 'assistant'| 'bot';
   timestamp: number;
   type?: 'text' | 'file' | 'image';
   metadata?: {
@@ -42,6 +43,11 @@ interface Message {
     fileType?: string;
     fileSize?: number;
     imageUrl?: string;
+    sources?: Array<{  // Add RAG sources
+      title: string;
+      content: string;
+      similarity: number;
+    }>;
   };
 }
 
@@ -57,64 +63,30 @@ interface FileUpload {
   file: File;
   preview: string;
   type: string;
-}
-
-type Theme = 'light' | 'blue-dark' | 'black-dark';
-
+};
 // Main ChatBot Component
-export default function EnhancedChatBot() {
+function ChatBot() {
+
+  // Get theme from context
+  const { theme, toggleTheme, getThemeClasses } = useTheme();
   // State Management
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [theme, setTheme] = useState<Theme>('light'); // Updated theme type
+
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([
-    {
-      id: 'chat-1',
-      title: 'Document Analysis',
-      preview: 'Analyzing quarterly sales report...',
-      timestamp: Date.now() - 86400000, // 1 day ago
-    },
-    {
-      id: 'chat-2',
-      title: 'Product Research',
-      preview: 'Tell me about the latest AI trends...',
-      timestamp: Date.now() - 172800000, // 2 days ago
-    },
-    {
-      id: 'chat-3',
-      title: 'Meeting Notes',
-      preview: 'Summarize the key points from...',
-      timestamp: Date.now() - 259200000, // 3 days ago
-    }
-  ]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newMessageAlert, setNewMessageAlert] = useState(false);
-  
-  // Check system preference for theme on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'black-dark' : 'light');
-    }
-  }, []);
-
-  // Apply theme class to body
-  useEffect(() => {
-    if (theme === 'black-dark' || theme === 'blue-dark') {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
-    }
-  }, [theme]);
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Dummy chat history data (replace with real data or state as needed)
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -167,64 +139,63 @@ export default function EnhancedChatBot() {
   const sendMessage = async () => {
     if (inputText.trim() === '' && uploadedFiles.length === 0) return;
 
-    // Create messages for uploaded files
-    const fileMessages: Message[] = uploadedFiles.map(upload => ({
-      id: `msg-${Date.now()}-${Math.random()}`,
-      content: upload.file.name,
-      sender: 'user',
-      timestamp: Date.now(),
-      type: upload.type.startsWith('image/') ? 'image' : 'file',
-      metadata: {
-        fileName: upload.file.name,
-        fileType: upload.file.type,
-        fileSize: upload.file.size,
-        imageUrl: upload.type.startsWith('image/') ? upload.preview : undefined
-      }
-    }));
+    try {
+      setIsLoading(true);
+      setError(null);  // Clear any previous errors
 
-    // Create text message if there's input text
-    const textMessage: Message | null = inputText.trim() !== '' 
-      ? {
-          id: `msg-${Date.now()}`,
-          content: inputText,
-          sender: 'user',
-          timestamp: Date.now(),
-          type: 'text'
+      // Handle file uploads first
+      if (uploadedFiles.length > 0) {
+        for (const upload of uploadedFiles) {
+          const formData = new FormData();
+          formData.append('file', upload.file);
+          
+          const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!uploadResponse.ok) throw new Error('File upload failed');
         }
-      : null;
+      }
 
-    // Combine all messages
-    const newMessages = [...fileMessages];
-    if (textMessage) newMessages.push(textMessage);
-    
-    // Add messages to state
-    setMessages(prev => [...prev, ...newMessages]);
-    setInputText('');
-    setUploadedFiles([]);
-    
-    // Simulate bot response
-    setIsLoading(true);
-    
-    // Simulate typing delay based on message length
-    const responseDelay = Math.min(
-      1000 + ((textMessage && textMessage.content ? textMessage.content.length : 0) * 10) || 1000,
-      3000
-    );
-    
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: `msg-${Date.now()}`,
-        content: getBotResponse(textMessage?.content || ""),
-        sender: 'bot',
-        timestamp: Date.now(),
-        type: 'text'
-      };
-      setMessages(prev => [...prev, botResponse]);
+      // Send message
+      if (inputText.trim()) {
+        const response = await fetch('http://localhost:8000/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message: inputText })
+        });
+
+        if (!response.ok) throw new Error('Failed to send message');
+        const data = await response.json();
+
+        // Add bot response with RAG sources
+        const botMessage: Message = {
+          id: `msg-${Date.now()}`,
+          content: data.content,
+          sender: 'bot',
+          timestamp: Date.now(),
+          type: 'text',
+          metadata: {
+            sources: data.metadata?.sources
+          }
+        };
+        setMessages(prev => [...prev, botMessage]);
+      }
+
+      setInputText('');
+      setUploadedFiles([]);
+    } catch (error) {
+      console.error('Error:', error);
+      // Add error handling UI
+    } finally {
       setIsLoading(false);
-    }, responseDelay);
+    }
   };
 
-  // Get appropriate bot response
+  // Get appropriate bot response 
   const getBotResponse = (userMessage: string): string => {
     if (!userMessage) return "I've received your file. Would you like me to analyze it?";
     
@@ -246,16 +217,19 @@ export default function EnhancedChatBot() {
       msg.content.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [messages, searchQuery]);
-
-  // Toggle Theme
-  const toggleTheme = () => {
-    setTheme(prevTheme => {
-      if (prevTheme === 'light') return 'blue-dark';
-      if (prevTheme === 'blue-dark') return 'black-dark';
-      return 'light';
-    });
+  
+  // Clear Search
+  const clearSearch = () => {
+    setSearchQuery('');
   };
-
+  // Clear Uploaded Files
+  const clearUploadedFiles = () => {
+    setUploadedFiles([]);
+  };
+  // Clear Chat History
+  const clearChatHistory = () => {
+    setMessages([]);
+  };
   // Clear Chat
   const clearChat = () => {
     if (confirm("Are you sure you want to clear the current conversation?")) {
@@ -281,12 +255,7 @@ export default function EnhancedChatBot() {
     }
   };
 
-  // Helper function to get theme classes
-  const getThemeClasses = (lightClasses: string, blueDarkClasses: string, blackDarkClasses: string) => {
-    if (theme === 'black-dark') return blackDarkClasses;
-    if (theme === 'blue-dark') return blueDarkClasses;
-    return lightClasses;
-  };
+
 
   // Render Methods
   const renderMessageBubble = (message: Message, index: number) => {
@@ -299,11 +268,11 @@ export default function EnhancedChatBot() {
         className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 items-end group`}
       >
         {!isUser && showSenderIcon && (
-          <div className={getThemeClasses(
-            "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2 shadow-sm", // Light mode
-            "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-700 flex items-center justify-center mr-2 shadow-sm", // Blue dark mode
-            "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center mr-2 shadow-sm" // Black dark mode
-          )}>
+          <div className={`
+              flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2
+              ${getThemeClasses().bg} ${getThemeClasses().text}
+              transition-colors duration-300
+            `}>
             <Bot className="h-5 w-5 text-white" />
           </div>
         )}
@@ -313,15 +282,12 @@ export default function EnhancedChatBot() {
             relative max-w-[80%] p-3 rounded-2xl shadow-sm
             ${isUser 
               ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-sm' // User message (same for all themes)
-              : getThemeClasses(
-                  'bg-gradient-to-r from-purple-50 to-indigo-50 text-gray-800 rounded-tl-sm', // Light bot message
-                  'bg-gradient-to-r from-blue-800 to-indigo-900 text-gray-100 rounded-tl-sm', // Blue dark bot message
-                  'bg-gray-700 text-gray-100 rounded-tl-sm' // Black dark bot message
-                )
-            }
-            transform transition-all duration-200 ease-in-out hover:scale-[1.01]
+              : getThemeClasses().bg} ${getThemeClasses().text} ${getThemeClasses().border} rounded-tl-sm'
+             
+              transform transition-all duration-200 ease-in-out hover:scale-[1.01]
           `}
         >
+
           {message.type === 'text' && <p className="whitespace-pre-wrap">{message.content}</p>}
           {message.type === 'image' && (
             <img 
@@ -348,6 +314,10 @@ export default function EnhancedChatBot() {
           <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center ml-2 shadow-sm">
             <User className="h-5 w-5 text-white" />
           </div>
+        )}
+        {/* Display sources if available */}
+        {message.metadata?.sources && (
+          <SourceDisplay sources={message.metadata.sources} />
         )}
       </div>
     );
@@ -393,53 +363,17 @@ export default function EnhancedChatBot() {
       {/* Sidebar */}
       <div 
         className={`
-          flex-shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-sm
+          flex-shrink-0 
+          ${getThemeClasses().sidebar}
           transition-all duration-300 ease-in-out
           ${isSidebarOpen ? 'w-72' : 'w-0'}
           md:relative absolute h-full z-20
         `}
       >
-        {isSidebarOpen && (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="font-semibold text-lg">Chat History</h2>
-              <button 
-                onClick={() => setIsSidebarOpen(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 md:hidden"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-3">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  className="w-full p-2 pl-8 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <Search 
-                  size={16} 
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400"
-                />
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-3">
-              {chatHistory.map(renderChatHistoryItem)}
-              
-              {/* New Chat Button */}
-              <div className="p-3">
-                <button 
-                  className="w-full flex items-center justify-center space-x-2 p-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-all duration-200"
-                >
-                  <MessageCircle size={16} />
-                  <span>New Chat</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+       <ChatHistoryContainer 
+          onClose={() => setIsSidebarOpen(false)} 
+          isSidebarOpen={isSidebarOpen} 
+      />
       </div>
 
       {/* Main content */}
@@ -448,9 +382,7 @@ export default function EnhancedChatBot() {
 <header 
   className={`
     flex justify-between items-center p-4 border-b mt-4 rounded-xl
-    ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' : 
-     theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' : 
-     'bg-white border-gray-200'}
+    ${getThemeClasses().header}
     shadow-lg z-10
   `}
 >
@@ -463,12 +395,8 @@ export default function EnhancedChatBot() {
     </button>
     
     <div className="flex items-center gap-2">
-      <div className={getThemeClasses(
-        "h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center", // Light
-        "h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-700 flex items-center justify-center", // Blue dark
-        "h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center" // Black dark
-      )}>
-        <Bot className="h-5 w-5 text-white" />
+      <div className={getThemeClasses().bg + " h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center"}>
+        <BotMessageSquare className="h-5 w-5 text-white" />
       </div>
       <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">QueryBot</h1>
     </div>
@@ -554,22 +482,16 @@ export default function EnhancedChatBot() {
           ref={chatContainerRef}
           className={`
             flex-1 overflow-y-auto p-4 rounded-xl shadow-lg
-            ${theme === 'black-dark' ? 'bg-gray-900' : 
-             theme === 'blue-dark' ? 'bg-gray-800' : 
-             'bg-gray-50'}
+            ${getThemeClasses().chatBg}}
             relative
           `}
         >
           {filteredMessages.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center text-gray-400">
-              <div className={getThemeClasses(
-                "w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center", // Light
-                "w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-blue-700 to-indigo-900 flex items-center justify-center", // Blue dark
-                "w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center" // Black dark
-              )}>
-                <MessageCircle size={48} className="text-gray-400 dark:text-gray-300" />
+              <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                <MessageCircleMore  size={48} className="text-gray-400 dark:text-gray-300" />
               </div>
-              <h2 className="text-xl font-medium mb-2 text-gray-600 dark:text-gray-300">Start a conversation</h2>
+              <h2 className="text-xl font-medium mb-2 text-gray-600 dark:text-gray-500">Start a conversation</h2>
               <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">
                 Ask me anything, upload documents, or get help with your questions!
               </p>
@@ -580,18 +502,17 @@ export default function EnhancedChatBot() {
                 {filteredMessages.map((message, index) => renderMessageBubble(message, index))}
                 {isLoading && (
                   <div className="flex justify-start mb-4 items-end">
-                    <div className={getThemeClasses(
-                      "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2", // Light
-                      "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-700 flex items-center justify-center mr-2", // Blue dark
-                      "flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center mr-2" // Black dark
-                    )}>
+                    <div className={
+                      "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center mr-2 " +
+                      (theme === 'light'
+                        ? "bg-gradient-to-br from-purple-500 to-blue-500"
+                        : theme === 'blue-dark'
+                        ? "bg-gradient-to-br from-blue-500 to-indigo-700"
+                        : "bg-gradient-to-br from-gray-600 to-gray-700")
+                    }>
                       <Bot className="h-5 w-5 text-white" />
                     </div>
-                    <div className={getThemeClasses(
-                      "bg-gradient-to-r from-purple-50 to-indigo-50 p-3 rounded-2xl rounded-tl-sm shadow-sm", // Light
-                      "bg-gradient-to-r from-blue-800 to-indigo-900 p-3 rounded-2xl rounded-tl-sm shadow-sm", // Blue dark
-                      "bg-gray-700 p-3 rounded-2xl rounded-tl-sm shadow-sm" // Black dark
-                    )}>
+                    <div className={getThemeClasses().bg + " p-3 rounded-2xl rounded-tl-sm shadow-sm"}>
                       <div className="flex space-x-2">
                         <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-pulse"></div>
                         <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-pulse delay-75"></div>
@@ -664,9 +585,7 @@ export default function EnhancedChatBot() {
         <div 
           className={`
             p-4 border-t rounded-xl shadow-lg mb-4
-            ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' : 
-             theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' : 
-             'bg-white border-gray-200'}
+            ${getThemeClasses().messageBox}
           `}
         >
           <div className="flex items-center gap-2 ">
@@ -746,7 +665,15 @@ export default function EnhancedChatBot() {
     </div>
   );
 }
-
+export default function page() {
+  return (
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ChatBot />
+      </ThemeProvider>
+    </ErrorBoundary>
+  );
+}
 
 // Utility function to get file type icon
 function getFileTypeIcon(fileType: string): string {
@@ -760,48 +687,6 @@ function getFileTypeIcon(fileType: string): string {
   };
   return iconMap[fileType] || '📁';
 }
-
-// Required for Tailwind CSS animations
-const tailwindConfig = {
-  theme: {
-    extend: {
-      animation: {
-        fadeIn: 'fadeIn 0.3s ease-in-out',
-        bounce: 'bounce 1s infinite',
-        pulse: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        spin: 'spin 1s linear infinite',
-        ping: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        bounce: {
-          '0%, 100%': {
-            transform: 'translateY(-25%)',
-            animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)'
-          },
-          '50%': {
-            transform: 'translateY(0)',
-            animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)'
-          },
-        },
-        pulse: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.5' },
-        },
-        spin: {
-          to: { transform: 'rotate(360deg)' },
-        },
-        ping: {
-          '75%, 100%': {
-            transform: 'scale(2)',
-            opacity: '0',
-          },
-        },
-      },
-    },
-  },
-};
-//...
+// Error state for displaying error messages
+const [error, setError] = useState<string | null>(null);
+// 

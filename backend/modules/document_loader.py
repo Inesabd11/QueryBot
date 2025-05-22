@@ -3,26 +3,45 @@ import sys
 from typing import List
 from abc import ABC, abstractmethod
 import logging
-# files format imports
-import PyPDF2 
-import json
+import pytesseract
 from PIL import Image
 import openpyxl
 from docx import Document as DocxDocument
-import textract
+import PyPDF2
 import pandas as pd 
-import pytesseract
+import json
+import textract 
 #langchain
 from langchain.schema import Document
 
 # Ajouter le chemin racine pour accéder aux modules config
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from config.paths import DATA_DIR
+from config.paths import DATA_DIR, TESSERACT_PATH
 
 #logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configure Tesseract path
+pytesseract.pytesseract.tesseract_cmd = str(TESSERACT_PATH)
+
+# Verify Tesseract configuration
+def verify_tesseract():
+    try:
+        version = pytesseract.get_tesseract_version()
+        logger.info(f"✅ Tesseract configured successfully (version {version})")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Tesseract configuration failed: {e}")
+        return False
+
+# Add this check after imports
+if not verify_tesseract():
+    raise RuntimeError(
+        "Tesseract OCR is not properly configured. "
+        f"Expected at: {TESSERACT_PATH}"
+    )
 
 # --------------------------------------------------------------------
 # STEP 1: Abstract Base Class
@@ -58,8 +77,7 @@ class ImageLoader(DocumentLoader):
     """
     Unified image loader for PNG, JPG and JPEG formats.
     Uses OCR (pytesseract) to extract text from images.
-    """
-    # Supported image formats
+    """  
     SUPPORTED_FORMATS = ['.png', '.jpg', '.jpeg']
     
     def load(self, file_path: str) -> List[Document]:
@@ -86,14 +104,31 @@ class ImageLoader(DocumentLoader):
             raise ValueError(f"Format de fichier non pris en charge: {file_ext}. Formats pris en charge: {', '.join(self.SUPPORTED_FORMATS)}")
         
         # Load image and extract text
-        image = Image.open(file_path)
-        text = pytesseract.image_to_string(image)
-        
-        # Log successful loading based on file format
-        format_name = file_ext.upper().replace('.', '')
-        logger.info(f"✅ {format_name} chargé: {file_path}")
-        
-        return [Document(page_content=text, metadata={"source": file_path})]
+        try:
+            image = Image.open(file_path)
+            text = pytesseract.image_to_string(image, lang='fra+eng')  # Support both French and English
+            
+            if not text.strip():
+                logger.warning(f"⚠️ Aucun texte extrait de l'image: {file_path}")
+                text = "No text could be extracted from this image."
+                
+            format_name = file_ext.upper().replace('.', '')
+            logger.info(f"✅ {format_name} chargé et OCR effectué: {file_path}")
+            
+            return [Document(
+                page_content=text,
+                metadata={
+                    "source": file_path,
+                    "format": format_name,
+                    "ocr_processed": True
+                }
+            )]
+            
+        except pytesseract.TesseractNotFoundError:
+            raise RuntimeError("Tesseract n'est pas installé ou n'est pas trouvé dans le PATH")
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du traitement de l'image {file_path}: {str(e)}")
+            raise
     
 #xls & xlsx
 class ExcelLoader(DocumentLoader):

@@ -4,6 +4,14 @@ import sys
 
 from pathlib import Path
 
+# Add this at the top after basic imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Now import local modules
+from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR
+from .chat_handler import save_message, load_history  # Use relative import
+from .document_loader import load_document, DocumentLoaderFactory  # Use relative import
+
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.vectorstores import FAISS
 
@@ -37,16 +45,8 @@ MAX_TOKENS = 1024
 # Set NVIDIA API Key from environment variable or inline
 nvidia_api_key = "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"
 os.environ["NVIDIA_API_KEY"] = nvidia_api_key
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR
-from chat_handler import save_message, load_history
-from document_loader import load_document, DocumentLoaderFactory
-
-# #Chat history file
-# CHAT_HISTORY_FILE = Path("storage/chat_history.json")
-
+# Ensure the directory exists
+os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
 class Chatbot:
     def __init__(self):
         print("✅ Chatbot initialized")
@@ -164,4 +164,3 @@ Answer the question based on the context provided. If the answer cannot be found
                     return f"File '{file}' successfully processed."
         except Exception as e:
             raise Exception(f"Error processing file: {str(e)}")
-    

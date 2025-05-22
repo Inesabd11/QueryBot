@@ -28,13 +28,16 @@ export default function ChatWindow() {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="  flex flex-col space-y-4">
           {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
+            <div className="w-full" key={index}> {/* Added width constraint */}
+              <ChatMessage message={message} />
+            </div>
+            // <ChatMessage key={index} message={message} />
           ))}
           
           {isLoading && (
-            <div className="flex items-center text-gray-500 italic">
+            <div className="flex items-center text-gray-500 italic self-start">
               <div className="animate-pulse flex space-x-1">
                 <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
                 <div className="h-2 w-2 bg-gray-400 rounded-full"></div>

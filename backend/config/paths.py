@@ -1,5 +1,5 @@
 import os
-
+from pathlib import Path
 # Récupérer le répertoire racine du projet (par exemple : /chemin/vers/QueryBot)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,3 +23,12 @@ STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
 # Dossier pour stocker les fichiers de modules
 MODULES_DIR = os.path.join(BASE_DIR, "modules")
+
+# Tesseract configuration
+TESSERACT_PATH = Path(r'C:\Program Files\Tesseract-OCR\tesseract.exe')
+# Validate Tesseract installation
+if not TESSERACT_PATH.exists():
+    raise RuntimeError(
+        f"Tesseract not found at {TESSERACT_PATH}. "
+        "Please install Tesseract or update the path."
+    )
