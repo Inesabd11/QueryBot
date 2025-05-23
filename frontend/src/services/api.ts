@@ -1,17 +1,7 @@
-// Create this file at frontend/src/services/api.ts
+import { ChatMessage, ChatResponse } from '@/hooks/chat';  // Changed from @/hooks/chat
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-export interface ChatMessage {
-  role: 'user' | 'assistant' | 'bot';
-  content: string;
-  timestamp?: string;
-}
-
-export interface ChatResponse {
-  message: ChatMessage;
-  sources?: any[];
-}
-
+//
 export const sendMessage = async (message: string, chatHistory: ChatMessage[] = []): Promise<ChatResponse> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat`, {

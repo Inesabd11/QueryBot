@@ -1,11 +1,11 @@
-import { ChatMessage as message } from '../services/api';
+import type { ChatMessage as IChatMessage } from '@/hooks/chat';  // Changed to type-only import and renamed
 import ReactMarkdown from 'react-markdown';
 
-interface ChatMessageType {
-  message: message;
+interface ChatMessageProps {
+  message: IChatMessage;  // Using renamed interface
 }
 
-export default function ChatMessage({ message }: ChatMessageType) {
+export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
   
   return (
@@ -29,8 +29,7 @@ export default function ChatMessage({ message }: ChatMessageType) {
           <div className={`text-xs mt-1 ${isUser ? 'text-blue-100' : 'text-gray-500'}`}>
             {new Date(message.timestamp).toLocaleTimeString()}
           </div>
-        )}
-        
+      )}
       </div>
     </div>
   );

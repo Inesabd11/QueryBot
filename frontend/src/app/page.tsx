@@ -2,91 +2,49 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ThemeProvider, useTheme } from '@/components/chat/theme/ThemeContext';
-import ChatHistory from '@/components/ChatHistory';
-import {ErrorBoundary} from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ChatHistoryContainer } from '@/components/ChatHistory';
-import { SourceDisplay } from '@/components/SourcesDisplay';
+import { MessageBubble } from '@/components/MessageBubble';
+import { ChatHistory, ChatMessage } from '@/hooks/chat';
+import { formatTimestamp } from '@/utils/fileUtils';
+import { useChat } from '@/hooks/useChat';
+import { useFileUpload } from '@/hooks/useFileUploads';
 import { BotMessageSquare, MessageCircleMore  } from 'lucide-react'
 import './globals.css';
 import { 
-  Search, 
-  Trash2, 
-  UploadCloud, 
-  Sun, 
-  Moon, 
-  Mic, 
-  FileText, 
-  Image, 
-  X, 
-  MessageCircle, 
-  ChevronRight,
-  ChevronLeft,
-  Send,
-  Clock,
-  Loader2,
-  Menu,
-  Bot,
-  User,
-  ArrowDown,
-  Trash
-} from 'lucide-react';
+  Search, Trash2, UploadCloud, Sun, Moon, FileText, X, MessageCircle, ChevronLeft,Send, Loader2, Menu, Bot, ArrowDown,
+    } from 'lucide-react';
 
+  function ChatBot() {
+    const { theme, toggleTheme, getThemeClasses } = useTheme();
+    const { 
+      messages, 
+      isLoading, 
+      error, 
+      sendMessage, 
+      clearChat, 
+      clearError 
+    } = useChat();
+    const {
+      uploadedFiles,
+      setUploadedFiles,
+      fileInputRef,
+      handleFileUpload
+    } = useFileUpload();
 
-interface Message {
-  id: string;
-  content: string;
-  sender: 'user' | 'assistant'| 'bot';
-  timestamp: number;
-  type?: 'text' | 'file' | 'image';
-  metadata?: {
-    fileName?: string;
-    fileType?: string;
-    fileSize?: number;
-    imageUrl?: string;
-    sources?: Array<{  // Add RAG sources
-      title: string;
-      content: string;
-      similarity: number;
-    }>;
-  };
-}
+    // State Management
+    const [inputText, setInputText] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [newMessageAlert, setNewMessageAlert] = useState(false);
 
-interface ChatHistory {
-  id: string;
-  title: string;
-  preview: string;
-  timestamp: number;
-  unread?: boolean;
-}
+    // Refs
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
-interface FileUpload {
-  file: File;
-  preview: string;
-  type: string;
-};
-// Main ChatBot Component
-function ChatBot() {
-
-  // Get theme from context
-  const { theme, toggleTheme, getThemeClasses } = useTheme();
-  // State Management
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [newMessageAlert, setNewMessageAlert] = useState(false);
-
-  // Refs
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  // Dummy chat history data (replace with real data or state as needed)
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+    // Dummy chat history data (replace with real data or state as needed)
+    const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -114,85 +72,14 @@ function ChatBot() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     setNewMessageAlert(false);
   };
-
-  // File Handling
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      const newFiles: FileUpload[] = Array.from(files).map(file => ({
-        file,
-        preview: file.type.startsWith('image/') 
-          ? URL.createObjectURL(file) 
-          : getFileTypeIcon(file.type),
-        type: file.type
-      }));
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-      
-      // Reset file input
-      if (event.target) {
-        event.target.value = '';
-      }
-    }
-  };
-
-  // Send Message Function
-  const sendMessage = async () => {
+  
+  // Simplified send handler
+  const handleSend = async () => {
     if (inputText.trim() === '' && uploadedFiles.length === 0) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);  // Clear any previous errors
-
-      // Handle file uploads first
-      if (uploadedFiles.length > 0) {
-        for (const upload of uploadedFiles) {
-          const formData = new FormData();
-          formData.append('file', upload.file);
-          
-          const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!uploadResponse.ok) throw new Error('File upload failed');
-        }
-      }
-
-      // Send message
-      if (inputText.trim()) {
-        const response = await fetch('http://localhost:8000/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ message: inputText })
-        });
-
-        if (!response.ok) throw new Error('Failed to send message');
-        const data = await response.json();
-
-        // Add bot response with RAG sources
-        const botMessage: Message = {
-          id: `msg-${Date.now()}`,
-          content: data.content,
-          sender: 'bot',
-          timestamp: Date.now(),
-          type: 'text',
-          metadata: {
-            sources: data.metadata?.sources
-          }
-        };
-        setMessages(prev => [...prev, botMessage]);
-      }
-
-      setInputText('');
-      setUploadedFiles([]);
-    } catch (error) {
-      console.error('Error:', error);
-      // Add error handling UI
-    } finally {
-      setIsLoading(false);
-    }
+    
+    await sendMessage(inputText, uploadedFiles);
+    setInputText('');
+    setUploadedFiles([]);
   };
 
   // Get appropriate bot response 
@@ -218,113 +105,7 @@ function ChatBot() {
     );
   }, [messages, searchQuery]);
   
-  // Clear Search
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
-  // Clear Uploaded Files
-  const clearUploadedFiles = () => {
-    setUploadedFiles([]);
-  };
-  // Clear Chat History
-  const clearChatHistory = () => {
-    setMessages([]);
-  };
-  // Clear Chat
-  const clearChat = () => {
-    if (confirm("Are you sure you want to clear the current conversation?")) {
-      setMessages([]);
-    }
-  };
-
-  // Format timestamp
-  const formatTimestamp = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-  };
-
-
-
-  // Render Methods
-  const renderMessageBubble = (message: Message, index: number) => {
-    const isUser = message.sender === 'user';
-    const showSenderIcon = index === 0 || messages[index - 1].sender !== message.sender;
-    
-    return (
-      <div 
-        key={message.id} 
-        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 items-end group`}
-      >
-        {!isUser && showSenderIcon && (
-          <div className={`
-              flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2
-              ${getThemeClasses().bg} ${getThemeClasses().text}
-              transition-colors duration-300
-            `}>
-            <Bot className="h-5 w-5 text-white" />
-          </div>
-        )}
-        
-        <div 
-          className={`
-            relative max-w-[80%] p-3 rounded-2xl shadow-sm
-            ${isUser 
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-sm' // User message (same for all themes)
-              : getThemeClasses().bg} ${getThemeClasses().text} ${getThemeClasses().border} rounded-tl-sm'
-             
-              transform transition-all duration-200 ease-in-out hover:scale-[1.01]
-          `}
-        >
-
-          {message.type === 'text' && <p className="whitespace-pre-wrap">{message.content}</p>}
-          {message.type === 'image' && (
-            <img 
-              src={message.metadata?.imageUrl} 
-              alt="Uploaded" 
-              className="max-w-full rounded-md"
-            />
-          )}
-          {message.type === 'file' && (
-            <div className="flex items-center bg-opacity-10 bg-gray-100 dark:bg-gray-900 p-2 rounded-md">
-              <FileText className="mr-2 text-gray-500 dark:text-gray-300" size={16} />
-              <span className="text-sm truncate max-w-xs">{message.metadata?.fileName}</span>
-              <button className="ml-2 text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs">
-                Download
-              </button>
-            </div>
-          )}
-          <div className="text-xs opacity-70 mt-1 text-right">
-            {formatTimestamp(message.timestamp)}
-          </div>
-        </div>
-        
-        {isUser && showSenderIcon && (
-          <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center ml-2 shadow-sm">
-            <User className="h-5 w-5 text-white" />
-          </div>
-        )}
-        {/* Display sources if available */}
-        {message.metadata?.sources && (
-          <SourceDisplay sources={message.metadata.sources} />
-        )}
-      </div>
-    );
-  };
-
-  // Render Chat History Item
-  const renderChatHistoryItem = (chat: ChatHistory) => {
+ const renderChatHistoryItem = (chat: ChatHistory) => {
     return (
       <div 
         key={chat.id}
@@ -348,6 +129,21 @@ function ChatBot() {
       </div>
     );
   };
+
+  // Add error notification
+  useEffect(() => {
+    if (error) {
+      // You can replace this with a proper toast notification
+      console.error('Chat Error:', error);
+      
+      // Auto-clear error after 5 seconds
+      const timer = setTimeout(() => {
+        clearError();
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
 
   // Render
   return (
@@ -427,7 +223,11 @@ function ChatBot() {
 
             {/* Clear History */}
             <button 
-              onClick={clearChat}
+              onClick={() => {
+                if (confirm("Are you sure you want to clear the current conversation?")) {
+                  clearChat(); 
+                }
+              }}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
               aria-label="Clear conversation"
             >
@@ -499,7 +299,14 @@ function ChatBot() {
           ) : (
             <>
               <div className="pb-2">
-                {filteredMessages.map((message, index) => renderMessageBubble(message, index))}
+                {filteredMessages.map((message, index) => (
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    showSenderIcon={index === 0 || filteredMessages[index - 1].sender !== message.sender}
+                    getThemeClasses={getThemeClasses}
+                  />
+                ))}
                 {isLoading && (
                   <div className="flex justify-start mb-4 items-end">
                     <div className={
@@ -618,7 +425,7 @@ function ChatBot() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    sendMessage();
+                    handleSend();
                   }
                 }}
                 placeholder="Type your message..."
@@ -639,7 +446,7 @@ function ChatBot() {
 
             {/* Send Button */}
             <button 
-              onClick={sendMessage}
+              onClick={handleSend}
               disabled={isLoading}
               className={`
                 p-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700
@@ -661,6 +468,31 @@ function ChatBot() {
             Press Enter to send, Shift+Enter for new line
           </div>
         </div>
+
+        {/* Add error message to UI */}
+        {error && (
+          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 mb-4 rounded shadow-md">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm">{error}</p>
+              </div>
+              <div className="ml-auto pl-3">
+                <button
+                  onClick={clearError}
+                  className="text-red-700 hover:text-red-900 focus:outline-none"
+                >
+                  <span className="sr-only">Dismiss</span>
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -674,19 +506,4 @@ export default function page() {
     </ErrorBoundary>
   );
 }
-
-// Utility function to get file type icon
-function getFileTypeIcon(fileType: string): string {
-  const iconMap: {[key: string]: string} = {
-    'application/pdf': '📄',
-    'text/plain': '📝',
-    'application/msword': '📄',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📄',
-    'application/vnd.ms-excel': '📊',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '📊'
-  };
-  return iconMap[fileType] || '📁';
-}
-// Error state for displaying error messages
-const [error, setError] = useState<string | null>(null);
-// 
+// This is a simple chat application using React and TypeScript. It includes features like file uploads, message history, and a theme toggle. The code is structured to provide a clean and responsive user interface.

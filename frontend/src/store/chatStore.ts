@@ -42,6 +42,12 @@ interface Message {
   };
 }
 
+interface QueuedMessage {
+  id: string;
+  content: string;
+  retryCount: number;
+}
+
 interface ChatState {
   messages: Message[];
   isLoading: boolean;
@@ -49,6 +55,11 @@ interface ChatState {
   socket: WebSocket | null;
   hasError: boolean;
   errorMessage: string;
+  messageQueue: QueuedMessage[];
+  isConnecting: boolean;
+  retryCount: number;
+  isTyping: boolean;
+  typingTimeout: NodeJS.Timeout | null;
   
   // Add missing function definitions to the interface
   clearError: () => void;
@@ -59,6 +70,12 @@ interface ChatState {
   clearHistory: () => Promise<void>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
+  enqueueMessage: (content: string) => void;
+  processMessageQueue: () => void;
+  setTyping: (typing: boolean) => void;
+  startTyping: () => void;
+  stopTyping: () => void;
+  clearMessages: () => void; // Add clearMessages to the interface
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -71,7 +88,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   socket: null,
   hasError: false,
   errorMessage: '',
-  
+  messageQueue: [],
+  isConnecting: false,
+  retryCount: 0,
+  isTyping: false,
+  typingTimeout: null,
+
   clearError: () => set({ hasError: false, errorMessage: '', error: null }),
 
   setMessages: (messages: Message[]) => set({ messages }),
@@ -234,5 +256,79 @@ export const useChatStore = create<ChatState>((set, get) => ({
       socket.close();
       set({ socket: null });
     }
-  }
+  },
+
+  enqueueMessage: (content: string) => {
+    const messageId = crypto.randomUUID();
+    set((state) => ({
+      messageQueue: [...state.messageQueue, {
+        id: messageId,
+        content,
+        retryCount: 0
+      }]
+    }));
+    get().processMessageQueue();
+  },
+
+  processMessageQueue: async () => {
+    const state = get();
+    if (state.messageQueue.length === 0 || state.isLoading) return;
+
+    const [nextMessage, ...remainingMessages] = state.messageQueue;
+    set({ isLoading: true });
+
+    try {
+      await state.sendMessage(nextMessage.content);
+      set((state) => ({ 
+        messageQueue: remainingMessages,
+        isLoading: false 
+      }));
+    } catch (error) {
+      if (nextMessage.retryCount < 3) {
+        // Retry with backoff
+        setTimeout(() => {
+          set((state) => ({
+            messageQueue: [
+              { ...nextMessage, retryCount: nextMessage.retryCount + 1 },
+              ...remainingMessages
+            ],
+            isLoading: false
+          }));
+          get().processMessageQueue();
+        }, Math.pow(2, nextMessage.retryCount) * 1000);
+      } else {
+        // Message failed after retries
+        set((state) => ({
+          messageQueue: remainingMessages,
+          isLoading: false,
+          hasError: true,
+          errorMessage: `Failed to send message after ${nextMessage.retryCount} retries`
+        }));
+      }
+    }
+  },
+
+  setTyping: (typing: boolean) => set({ isTyping: typing }),
+  
+  startTyping: () => {
+    const state = get();
+    if (state.typingTimeout) clearTimeout(state.typingTimeout);
+    
+    set({ 
+      isTyping: true,
+      typingTimeout: setTimeout(() => {
+        set({ isTyping: false, typingTimeout: null });
+      }, 3000)
+    });
+  },
+
+  stopTyping: () => {
+    const state = get();
+    if (state.typingTimeout) clearTimeout(state.typingTimeout);
+    set({ isTyping: false, typingTimeout: null });
+  },
+
+  clearMessages: () => {
+    set({ messages: [] });
+  },
 }));

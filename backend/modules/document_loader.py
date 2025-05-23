@@ -3,23 +3,36 @@ import sys
 from typing import List
 from abc import ABC, abstractmethod
 import logging
-import pytesseract
-from PIL import Image
-import openpyxl
-from docx import Document as DocxDocument
-import PyPDF2
-import pandas as pd 
-import json
-import textract 
-#langchain
-from langchain.schema import Document
+from pathlib import Path
 
-# Ajouter le chemin racine pour accéder aux modules config
+# Add path to root directory for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Import config first
+from config.constants import SUPPORTED_FILE_TYPES, validate_file, ALL_SUPPORTED_EXTENSIONS
 from config.paths import DATA_DIR, TESSERACT_PATH
 
-#logging
+# Document processing imports
+from PIL import Image
+import pytesseract
+import PyPDF2
+from docx import Document as DocxDocument
+import openpyxl
+import textract
+import pandas as pd
+import json
+# Technical file formats
+import ezdxf  # For CAD files
+from stl import mesh as numpy_stl  # Rename to avoid confusion
+import xml.etree.ElementTree as ET  # For XML
+import yaml  # For YAML/YML
+import svglib.svglib  # For SVG
+from striprtf.striprtf import rtf_to_text  # For RTF
+
+# Langchain imports
+from langchain.schema import Document
+
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -48,6 +61,7 @@ if not verify_tesseract():
 # --------------------------------------------------------------------
 
 class DocumentLoader(ABC): 
+    """Abstract base class for document loaders"""
     @abstractmethod
     def load(self, file_path: str) -> List[Document]:
         pass
@@ -74,58 +88,43 @@ class PDFLoader(DocumentLoader):
     
 # PNG, JPG, JPEG    
 class ImageLoader(DocumentLoader):
-    """
-    Unified image loader for PNG, JPG and JPEG formats.
-    Uses OCR (pytesseract) to extract text from images.
-    """  
-    SUPPORTED_FORMATS = ['.png', '.jpg', '.jpeg']
-    
+    """Unified image loader for image formats"""
     def load(self, file_path: str) -> List[Document]:
-        """
-        Load an image file and extract text using OCR.
+        file_path = Path(file_path)
         
-        Args:
-            file_path: Path to the image file
-            
-        Returns:
-            List containing a Document with extracted text and metadata
-            
-        Raises:
-            FileNotFoundError: If the file doesn't exist
-            ValueError: If the file format is not supported
-        """
-        # Check if file exists
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
-            
-        # Check if file format is supported
-        file_ext = os.path.splitext(file_path)[1].lower()
-        if file_ext not in self.SUPPORTED_FORMATS:
-            raise ValueError(f"Format de fichier non pris en charge: {file_ext}. Formats pris en charge: {', '.join(self.SUPPORTED_FORMATS)}")
-        
-        # Load image and extract text
         try:
-            image = Image.open(file_path)
-            text = pytesseract.image_to_string(image, lang='fra+eng')  # Support both French and English
-            
-            if not text.strip():
-                logger.warning(f"⚠️ Aucun texte extrait de l'image: {file_path}")
-                text = "No text could be extracted from this image."
+            # Validate file exists
+            if not file_path.exists():
+                raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
+
+            # Validate file extension
+            if file_path.suffix.lower() not in SUPPORTED_FILE_TYPES['images']:
+                raise ValueError(f"Format non supporté: {file_path.suffix}")
+
+            # Load and process image
+            with Image.open(file_path) as image:
+                # Convert image to RGB if necessary
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
                 
-            format_name = file_ext.upper().replace('.', '')
-            logger.info(f"✅ {format_name} chargé et OCR effectué: {file_path}")
-            
-            return [Document(
-                page_content=text,
-                metadata={
-                    "source": file_path,
-                    "format": format_name,
-                    "ocr_processed": True
-                }
-            )]
-            
-        except pytesseract.TesseractNotFoundError:
-            raise RuntimeError("Tesseract n'est pas installé ou n'est pas trouvé dans le PATH")
+                # Extract text using OCR
+                text = pytesseract.image_to_string(image, lang='fra+eng')
+                
+                if not text.strip():
+                    logger.warning(f"⚠️ Aucun texte extrait de l'image: {file_path}")
+                    text = "No text could be extracted from this image."
+                
+                logger.info(f"✅ Image traitée: {file_path}")
+                return [Document(
+                    page_content=text,
+                    metadata={
+                        "source": str(file_path),
+                        "format": file_path.suffix.upper().replace('.', ''),
+                        "ocr_processed": True,
+                        "image_size": f"{image.size[0]}x{image.size[1]}"
+                    }
+                )]
+
         except Exception as e:
             logger.error(f"❌ Erreur lors du traitement de l'image {file_path}: {str(e)}")
             raise
@@ -240,6 +239,120 @@ class TXTLoader(DocumentLoader):
         logger.info(f"✅ TXT chargé: {file_path}")
         return [Document(page_content=text, metadata={"source": file_path})]
     
+# RTFloader classes
+class RTFLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
+            
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                rtf_content = file.read()
+                text = rtf_to_text(rtf_content)
+                
+            logger.info(f"✅ RTF chargé: {file_path}")
+            return [Document(
+                page_content=text,
+                metadata={
+                    "source": file_path,
+                    "format": "RTF"
+                }
+            )]
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du chargement du RTF {file_path}: {str(e)}")
+            # Try fallback method with textract if striprtf fails
+            try:
+                text = textract.process(file_path).decode('utf-8')
+                logger.info(f"✅ RTF chargé (via textract): {file_path}")
+                return [Document(
+                    page_content=text,
+                    metadata={
+                        "source": file_path,
+                        "format": "RTF",
+                        "fallback": "textract"
+                    }
+                )]
+            except Exception as e2:
+                raise Exception(f"Failed to load RTF file using both methods: {str(e)} | {str(e2)}")
+
+class MarkdownLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+        return [Document(page_content=text, metadata={"source": file_path})]
+
+class PowerPointLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        text = textract.process(file_path).decode('utf-8')
+        return [Document(page_content=text, metadata={"source": file_path})]
+
+class XMLLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+        text = ET.tostring(root, encoding='unicode', method='xml')
+        return [Document(page_content=text, metadata={"source": file_path})]
+
+class YAMLLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        with open(file_path, 'r') as f:
+            data = yaml.safe_load(f)
+        text = yaml.dump(data, allow_unicode=True)
+        return [Document(page_content=text, metadata={"source": file_path})]
+
+class CADLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        doc = ezdxf.readfile(file_path)
+        text = str(doc.header) + "\n"
+        for entity in doc.modelspace():
+            text += str(entity) + "\n"
+        return [Document(page_content=text, metadata={"source": file_path})]
+
+class STLLoader(DocumentLoader):
+    def load(self, file_path: str) -> List[Document]:
+        try:
+            # Load the STL file
+            stl_mesh = numpy_stl.Mesh.from_file(file_path)
+            
+            # Extract basic geometry information
+            vertices = len(stl_mesh.vectors)
+            volume, cog, inertia = stl_mesh.get_mass_properties()
+            
+            # Create a structured text representation
+            text = f"""STL File Analysis:
+Number of vertices: {vertices}
+Volume: {volume:.2f} cubic units
+Center of gravity: [{', '.join(f'{x:.2f}' for x in cog)}]
+"""
+            
+            logger.info(f"✅ STL chargé: {file_path}")
+            return [Document(
+                page_content=text,
+                metadata={
+                    "source": file_path,
+                    "format": "STL",
+                    "vertices": vertices,
+                    "volume": float(volume)
+                }
+            )]
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du chargement du STL {file_path}: {str(e)}")
+            raise
+
+# TODO: Implement these loaders
+class DatabaseLoader(DocumentLoader):
+    """For handling .db files using sqlite3"""
+    pass
+
+class ConfigLoader(DocumentLoader):
+    """For handling .ini and .conf files using configparser"""
+    pass
+
+class VectorImageLoader(DocumentLoader):
+    """For handling .svg and .eps files using svglib and renderPM"""
+    pass
+
 # --------------------------------------------------------------------
 # STEP 3: Factory/File Extension
 # --------------------------------------------------------------------
@@ -251,25 +364,56 @@ class DocumentLoaderFactory:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Le fichier {file_path} n'existe pas.")
 
-        extension = os.path.splitext(file_path)[1].lower()
+        extension = Path(file_path).suffix.lower()
 
-        if extension == '.pdf':
-            return PDFLoader()
-        elif extension in ['.docx', '.doc']:
-            return WordDocumentLoader()
-        elif extension == '.csv':
-            return CSVLoader()
-        elif extension == '.txt':
-            return TXTLoader()
-        elif extension in ['.png', '.jpg', '.jpeg']:
-            return ImageLoader()
-        elif extension in ['.xls', '.xlsx']:
-            return ExcelLoader()
-        elif extension == '.json':
-            return JSONLoader()
-        else:
-            raise ValueError(f"❌ Le format {extension} n'est pas supporté.")
+        # Documents
+        if extension in SUPPORTED_FILE_TYPES['documents']:
+            if extension == '.pdf':
+                return PDFLoader()
+            elif extension in ['.doc', '.docx', '.odt']:
+                return WordDocumentLoader()
+            elif extension in ['.ppt', '.pptx', '.odp']:
+                return PowerPointLoader()
+            elif extension == '.rtf':
+                return RTFLoader()
+            elif extension in ['.md', '.log', '.txt']:
+                return TXTLoader()
+            elif extension in ['.xlsx', '.xls', '.ods']:
+                return ExcelLoader()
 
+        # Data files
+        elif extension in SUPPORTED_FILE_TYPES['data_files']:
+            if extension == '.csv':
+                return CSVLoader()
+            elif extension == '.json':
+                return JSONLoader()
+            elif extension == '.xml':
+                return XMLLoader()
+            elif extension in ['.yaml', '.yml']:
+                return YAMLLoader()
+            elif extension in ['.ini', '.conf']:
+                return ConfigLoader()
+            elif extension == '.db':
+                return DatabaseLoader()
+
+        # Technical files
+        elif extension in SUPPORTED_FILE_TYPES['technical']:
+            if extension in ['.dxf', '.dwg']:
+                return CADLoader()
+            elif extension in ['.stl', '.obj']:
+                return STLLoader()
+
+        # Images
+        elif extension in SUPPORTED_FILE_TYPES['images']:
+            if extension in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.tif', '.webp']:
+                return ImageLoader()
+            elif extension in ['.svg', '.eps']:
+                return VectorImageLoader()
+
+        raise ValueError(
+            f"❌ Le format {extension} n'est pas supporté. "
+            f"Formats supportés: {', '.join(sorted(ALL_SUPPORTED_EXTENSIONS))}"
+        )
 # --------------------------------------------------------------------
 # STEP 4: Helper function
 # --------------------------------------------------------------------
