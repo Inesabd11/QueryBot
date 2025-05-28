@@ -1,13 +1,14 @@
 import os
 import sys
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List
+from typing import List, AsyncGenerator
 import json
+import asyncio
 
 # Import components with clear names
 from routers.chat import router as chat_router
@@ -21,12 +22,12 @@ chatbot = Chatbot()
 # Ensure uploads directory exists
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-# Update CORS settings with WebSocket support
+# Update CORS settings for SSE
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "ws://localhost:3000",
-    "ws://127.0.0.1:3000"
+    "https://localhost:3000",
+    "https://127.0.0.1:3000"
 ]
 
 # Add request/response models
@@ -43,11 +44,11 @@ class ChatResponse(BaseModel):
 # FastAPI setup
 app = FastAPI(
     title="QueryBot API",
-    description="RAG-enabled chatbot API with real-time WebSocket support",
+    description="RAG-enabled chatbot API with Server-Sent Events support",
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware with SSE support
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -57,54 +58,44 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# WebSocket connection manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-manager = ConnectionManager()
-
-# WebSocket endpoint
-@app.websocket("/ws/chat")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_json()
+# SSE Chat endpoint
+@app.post("/api/chat/stream")
+async def stream_chat(request: ChatRequest):
+    """Stream chat responses using Server-Sent Events"""
+    
+    async def generate_response() -> AsyncGenerator[str, None]:
+        try:
+            # Send initial status
+            yield f"data: {json.dumps({'type': 'status', 'content': 'processing', 'timestamp': datetime.now().isoformat()})}\n\n"
             
-            try:
-                # Send processing status
-                await websocket.send_json({
-                    "type": "status",
-                    "content": "processing"
-                })
+            # Get streaming response from chatbot
+            response_stream = chatbot.get_streaming_response(request.message)
+            
+            async for chunk in response_stream:
+                # Send each chunk
+                yield f"data: {json.dumps({'type': 'stream', 'content': chunk, 'role': 'assistant', 'timestamp': datetime.now().isoformat()})}\n\n"
+                await asyncio.sleep(0.01)  # Small delay to prevent overwhelming
+            
+            # Send completion signal
+            yield f"data: {json.dumps({'type': 'complete', 'content': '', 'role': 'assistant', 'timestamp': datetime.now().isoformat()})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'timestamp': datetime.now().isoformat()})}\n\n"
+        
+        # Send end signal
+        yield "data: [DONE]\n\n"
 
-                # Get response from chatbot
-                response = chatbot.get_response(data["message"])
-
-                # Send response
-                await websocket.send_json({
-                    "type": "message",
-                    "content": response,
-                    "role": "assistant",
-                    "timestamp": datetime.now().isoformat()
-                })
-
-            except Exception as e:
-                await websocket.send_json({
-                    "type": "error",
-                    "content": str(e)
-                })
-
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+    return StreamingResponse(
+        generate_response(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 # Health check endpoint
 @app.get("/health")
@@ -128,14 +119,14 @@ async def health_check():
             }
         )
 
-# Add root endpoint (after FastAPI setup)
+# Root endpoint
 @app.get("/")
 async def root():
     """Redirect to API documentation"""
     return RedirectResponse(url="/docs")
 
-# Rename chat endpoint to be more specific
-@app.post("/api/chat_message")
+# Regular chat endpoint (non-streaming)
+@app.post("/api/chat")
 async def handle_chat_message(request: ChatRequest):
     try:
         response = chatbot.get_response(request.message)
@@ -149,7 +140,7 @@ async def handle_chat_message(request: ChatRequest):
             content={"error": str(e)}
         )
 
-# Include routers with clear names
+# Include routers
 app.include_router(
     chat_router,
     prefix="/api/chat",
@@ -162,7 +153,6 @@ app.include_router(
     tags=["documents"]
 )
 
-# Root endpoint
 # Run the application
 if __name__ == "__main__":
     uvicorn.run(

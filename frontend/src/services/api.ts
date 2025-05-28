@@ -1,10 +1,11 @@
-import { ChatMessage, ChatResponse } from '@/hooks/chat';  // Changed from @/hooks/chat
+import { ChatMessage, ChatResponse } from '@/hooks/useChat';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-//
+
 export const sendMessage = async (message: string, chatHistory: ChatMessage[] = []): Promise<ChatResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+    // Use the correct endpoint from your backend
+    const response = await fetch(`${API_BASE_URL}/api/chat_message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,13 +32,15 @@ export const uploadDocument = async (file: File): Promise<{success: boolean, mes
   formData.append('file', file);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/upload`, {
+    // Use the correct endpoint from your backend
+    const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
       method: 'POST',
       body: formData,
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Upload failed: ${response.statusText} - ${errorText}`);
     }
 
     return await response.json();
@@ -47,9 +50,26 @@ export const uploadDocument = async (file: File): Promise<{success: boolean, mes
   }
 };
 
+export const checkServerHealth = async (): Promise<{status: string, components: any}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`);
+    
+    if (!response.ok) {
+      throw new Error(`Health check failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error checking server health:', error);
+    throw error;
+  }
+};
+
 export const clearChatHistory = async (): Promise<{success: boolean}> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/chat/clear`, {
+    // Note: This endpoint doesn't exist in your backend yet
+    // You'll need to implement it or remove this function
+    const response = await fetch(`${API_BASE_URL}/api/chat/clear`, {
       method: 'POST',
     });
 

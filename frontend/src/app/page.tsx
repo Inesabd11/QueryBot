@@ -1,50 +1,64 @@
-//
-"use client";
+'use client';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ThemeProvider, useTheme } from '@/components/chat/theme/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ChatHistoryContainer } from '@/components/ChatHistory';
 import { MessageBubble } from '@/components/MessageBubble';
-import { ChatHistory, ChatMessage } from '@/hooks/chat';
+import { ChatHistory, ChatMessage } from '@/hooks/useChat';
 import { formatTimestamp } from '@/utils/fileUtils';
-import { useChat } from '@/hooks/useChat';
+import { SSEService } from '@/hooks/useChat';
 import { useFileUpload } from '@/hooks/useFileUploads';
-import { BotMessageSquare, MessageCircleMore  } from 'lucide-react'
+import { BotMessageSquare, MessageCircleMore } from 'lucide-react'
 import './globals.css';
 import { 
-  Search, Trash2, UploadCloud, Sun, Moon, FileText, X, MessageCircle, ChevronLeft,Send, Loader2, Menu, Bot, ArrowDown,
-    } from 'lucide-react';
+  Search, Trash2, UploadCloud, Sun, Moon, FileText, X, MessageCircle, ChevronLeft, Send, Loader2, Menu, Bot, ArrowDown,
+} from 'lucide-react';
 
-  function ChatBot() {
-    const { theme, toggleTheme, getThemeClasses } = useTheme();
-    const { 
-      messages, 
-      isLoading, 
-      error, 
-      sendMessage, 
-      clearChat, 
-      clearError 
-    } = useChat();
-    const {
-      uploadedFiles,
-      setUploadedFiles,
-      fileInputRef,
-      handleFileUpload
-    } = useFileUpload();
+function ChatBot() {
+  const { theme, toggleTheme, getThemeClasses } = useTheme();
+  const { 
+    messages, 
+    isLoading, 
+    error, 
+    isConnected,
+    sendMessage, 
+    clearChat, 
+    clearError,
+    connectWebSocket
+  } = useChat();
+  const {
+    uploadedFiles,
+    setUploadedFiles,
+    fileInputRef,
+    handleFileUpload
+  } = useFileUpload();
 
-    // State Management
-    const [inputText, setInputText] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [newMessageAlert, setNewMessageAlert] = useState(false);
+  // State Management
+  const [inputText, setInputText] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [newMessageAlert, setNewMessageAlert] = useState(false);
 
-    // Refs
-    const chatEndRef = useRef<HTMLDivElement>(null);
-    const chatContainerRef = useRef<HTMLDivElement>(null);
+  // Refs
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
-    // Dummy chat history data (replace with real data or state as needed)
-    const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+  // Dummy chat history data (replace with real data or state as needed)
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+
+  // Connection status monitoring
+  useEffect(() => {
+    if (!isConnected) {
+      // Try to reconnect every 5 seconds if not connected
+      const reconnectInterval = setInterval(() => {
+        console.log('Attempting to reconnect...');
+        connectWebSocket();
+      }, 5000);
+
+      return () => clearInterval(reconnectInterval);
+    }
+  }, [isConnected, connectWebSocket]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -77,24 +91,21 @@ import {
   const handleSend = async () => {
     if (inputText.trim() === '' && uploadedFiles.length === 0) return;
     
-    await sendMessage(inputText, uploadedFiles);
-    setInputText('');
-    setUploadedFiles([]);
+    try {
+      await sendMessage(inputText, uploadedFiles);
+      setInputText('');
+      setUploadedFiles([]);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    }
   };
 
-  // Get appropriate bot response 
-  const getBotResponse = (userMessage: string): string => {
-    if (!userMessage) return "I've received your file. Would you like me to analyze it?";
-    
-    if (userMessage.toLowerCase().includes('hello') || userMessage.toLowerCase().includes('hi')) {
-      return "Hello! How can I assist you today? I can help answer questions, analyze documents, or discuss any topic you're interested in.";
-    }
-    
-    if (userMessage.toLowerCase().includes('help')) {
-      return "I'm here to help! You can ask me questions, upload documents for analysis, or just chat about any topic. What would you like to explore today?";
-    }
-    
-    return `I've processed your message: "${userMessage}". How would you like me to help you with this?`;
+  // Handle Enter key press
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+  }
   };
 
   // Search Messages
@@ -105,7 +116,7 @@ import {
     );
   }, [messages, searchQuery]);
   
- const renderChatHistoryItem = (chat: ChatHistory) => {
+  const renderChatHistoryItem = (chat: ChatHistory) => {
     return (
       <div 
         key={chat.id}
@@ -120,7 +131,7 @@ import {
         </div>
         <div className="ml-2 flex flex-col items-end">
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            {formatTimestamp(chat.timestamp)}
+            {formatTimestamp(Number(chat.timestamp))}
           </span>
           {chat.unread && (
             <span className="h-2 w-2 bg-blue-500 rounded-full mt-1"></span>
@@ -132,8 +143,7 @@ import {
 
   // Add error notification
   useEffect(() => {
-    if (error) {
-      // You can replace this with a proper toast notification
+     if (error) {
       console.error('Chat Error:', error);
       
       // Auto-clear error after 5 seconds
@@ -144,6 +154,24 @@ import {
       return () => clearTimeout(timer);
     }
   }, [error, clearError]);
+
+  // Connection status indicator
+  const ConnectionStatus = () => (
+    <div className={`flex items-center gap-2 text-xs ${
+      isConnected ? 'text-green-600' : 'text-red-600'
+    }`}>
+      <div className={`w-2 h-2 rounded-full ${
+        isConnected ? 'bg-green-500' : 'bg-red-500'
+      }`} />
+      {isConnected ? 'Connected' : 'Disconnected'}
+    </div>
+  );
+
+  // Auto-resize textarea
+  const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto';
+    element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
+  };
 
   // Render
   return (
@@ -166,39 +194,42 @@ import {
           md:relative absolute h-full z-20
         `}
       >
-       <ChatHistoryContainer 
+        <ChatHistoryContainer 
           onClose={() => setIsSidebarOpen(false)} 
           isSidebarOpen={isSidebarOpen} 
-      />
+        />
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
-{/* Header */}
-<header 
-  className={`
-    flex justify-between items-center p-4 border-b mt-4 rounded-xl
-    ${getThemeClasses().header}
-    shadow-lg z-10
-  `}
->
-  <div className="flex items-center gap-2">
-    <button
-      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-      className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-    >
-      {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
-    </button>
-    
-    <div className="flex items-center gap-2">
-      <div className={getThemeClasses().bg + " h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center"}>
-        <BotMessageSquare className="h-5 w-5 text-white" />
-      </div>
-      <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">QueryBot</h1>
-    </div>
-  </div>
-  
-  <div className="flex items-center gap-2">
+        {/* Header */}
+        <header 
+          className={`
+            flex justify-between items-center p-4 border-b mt-4 rounded-xl
+            ${getThemeClasses().header}
+            shadow-lg z-10
+          `}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+            >
+              {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
+            </button>
+            
+            <div className="flex items-center gap-2">
+              <div className={getThemeClasses().bg + " h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center"}>
+                <BotMessageSquare className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">QueryBot</h1>
+                <ConnectionStatus />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <button 
               onClick={toggleTheme} 
@@ -277,19 +308,39 @@ import {
           </div>
         )}
 
+        {/* Error Banner */}
+        {error && (
+          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 mb-4 rounded shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm">{error}</p>
+              </div>
+              <button
+                onClick={clearError}
+                className="text-red-700 hover:text-red-900 focus:outline-none"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Chat Messages */}
         <div 
           ref={chatContainerRef}
           className={`
             flex-1 overflow-y-auto p-4 rounded-xl shadow-lg
-            ${getThemeClasses().chatBg}}
+            ${getThemeClasses().chatBg}
             relative
           `}
         >
           {filteredMessages.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center text-gray-400">
               <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
-                <MessageCircleMore  size={48} className="text-gray-400 dark:text-gray-300" />
+                <MessageCircleMore size={48} className="text-gray-400 dark:text-gray-300" />
               </div>
               <h2 className="text-xl font-medium mb-2 text-gray-600 dark:text-gray-500">Start a conversation</h2>
               <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">
@@ -395,7 +446,7 @@ import {
             ${getThemeClasses().messageBox}
           `}
         >
-          <div className="flex items-center gap-2 ">
+          <div className="flex items-end gap-2">
             {/* File Upload */}
             <input 
               type="file" 
@@ -406,9 +457,12 @@ import {
             />
             <button 
               onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
               className={`
                 p-2 rounded-full transition-colors duration-200
-                ${theme === 'light'
+                ${isLoading 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : theme === 'light'
                   ? 'hover:bg-gray-100 text-gray-600' 
                   : 'hover:bg-gray-700 text-gray-300'}
               `}
@@ -421,20 +475,20 @@ import {
             <div className="flex-1 relative">
               <textarea 
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  adjustTextareaHeight(e.target);
                 }}
-                placeholder="Type your message..."
+                onKeyDown={handleKeyPress}
+                disabled={isLoading}
+                placeholder={isConnected ? "Type your message..." : "Connecting to server..."}
                 rows={1}
                 className={`
                   w-full p-3 rounded-2xl shadow-sm resize-none
                   ${(theme === 'blue-dark' || theme === 'black-dark')
                     ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600' 
                     : 'bg-gray-50 text-black placeholder-gray-500 border-gray-200'}
+                  ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
                   focus:outline-none focus:ring-2 focus:ring-blue-500 border
                 `}
                 style={{
@@ -447,11 +501,11 @@ import {
             {/* Send Button */}
             <button 
               onClick={handleSend}
-              disabled={isLoading}
+              disabled={isLoading || (inputText.trim() === '' && uploadedFiles.length === 0)}
               className={`
                 p-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700
                 text-white shadow-md transition-all duration-200
-                ${isLoading || (inputText.trim() === '' && uploadedFiles.length === 0) 
+                ${(isLoading || (inputText.trim() === '' && uploadedFiles.length === 0))
                   ? 'opacity-50 cursor-not-allowed' 
                   : 'hover:shadow-lg'}
               `}
@@ -468,35 +522,11 @@ import {
             Press Enter to send, Shift+Enter for new line
           </div>
         </div>
-
-        {/* Add error message to UI */}
-        {error && (
-          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 mb-4 rounded shadow-md">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm">{error}</p>
-              </div>
-              <div className="ml-auto pl-3">
-                <button
-                  onClick={clearError}
-                  className="text-red-700 hover:text-red-900 focus:outline-none"
-                >
-                  <span className="sr-only">Dismiss</span>
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+     </div>
     </div>
   );
 }
+
 export default function page() {
   return (
     <ErrorBoundary>
@@ -506,4 +536,3 @@ export default function page() {
     </ErrorBoundary>
   );
 }
-// This is a simple chat application using React and TypeScript. It includes features like file uploads, message history, and a theme toggle. The code is structured to provide a clean and responsive user interface.

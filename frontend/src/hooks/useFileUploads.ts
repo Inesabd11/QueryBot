@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { FileUpload } from '@/hooks/chat';  // Updated import path
+import { FileUpload } from '@/hooks/useChat';  // Updated import path
 import { getFileTypeIcon } from '@/utils/fileUtils';
 
 export const useFileUpload = () => {

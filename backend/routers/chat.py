@@ -1,5 +1,6 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from typing import List, Optional, Dict, Any, AsyncGenerator
 from pydantic import BaseModel
 from datetime import datetime
 import json
@@ -7,6 +8,7 @@ import asyncio
 
 # Create router with explicit name
 router = APIRouter()
+
 # Chat models
 class ChatRequest(BaseModel):
     message: str
@@ -18,86 +20,50 @@ class ChatResponse(BaseModel):
     timestamp: str
     type: str = "text"
 
-# Enhanced WebSocket manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
-        self.processing: Dict[str, bool] = {}
-
-    async def connect(self, websocket: WebSocket, client_id: str):
-        await websocket.accept()
-        self.active_connections[client_id] = websocket
-        self.processing[client_id] = False
-
-    def disconnect(self, client_id: str):
-        self.active_connections.pop(client_id, None)
-        self.processing.pop(client_id, None)
-
-    async def send_message(self, client_id: str, message_type: str, content: str, **kwargs):
-        if client_id in self.active_connections:
-            await self.active_connections[client_id].send_json({
-                "type": message_type,
-                "content": content,
-                "timestamp": datetime.now().isoformat(),
-                **kwargs
-            })
-
-    async def stream_response(self, client_id: str, response_iterator):
-        """Stream response chunks to the client"""
+# SSE streaming endpoint
+@router.post("/stream")
+async def stream_chat_response(request: ChatRequest):
+    """Stream chat responses using Server-Sent Events"""
+    
+    async def generate_sse_response() -> AsyncGenerator[str, None]:
         try:
-            async for chunk in response_iterator:
-                await self.send_message(
-                    client_id,
-                    "stream",
-                    chunk,
-                    role="assistant",
-                    is_streaming=True
-                )
-                await asyncio.sleep(0.05)  # Prevent flooding
+            from modules.chatbot import chatbot
             
-            # Send completion message
-            await self.send_message(
-                client_id,
-                "complete",
-                "",
-                role="assistant",
-                is_streaming=False
-            )
+            # Send processing status
+            yield f"data: {json.dumps({'type': 'status', 'content': 'processing', 'timestamp': datetime.now().isoformat()})}\n\n"
+            
+            # Get streaming response from chatbot
+            response_stream = chatbot.get_streaming_response(request.message)
+            
+            accumulated_content = ""
+            async for chunk in response_stream:
+                accumulated_content += chunk + " "
+                # Send each chunk
+                yield f"data: {json.dumps({'type': 'stream', 'content': chunk, 'role': 'assistant', 'timestamp': datetime.now().isoformat(), 'accumulated': accumulated_content.strip()})}\n\n"
+                await asyncio.sleep(0.01)  # Small delay to prevent overwhelming
+            
+            # Send completion signal
+            yield f"data: {json.dumps({'type': 'complete', 'content': accumulated_content.strip(), 'role': 'assistant', 'timestamp': datetime.now().isoformat()})}\n\n"
+            
         except Exception as e:
-            await self.send_message(client_id, "error", str(e))
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'timestamp': datetime.now().isoformat()})}\n\n"
+        
+        # Send end signal
+        yield "data: [DONE]\n\n"
 
-manager = ConnectionManager()
+    return StreamingResponse(
+        generate_sse_response(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
 
-# Rename websocket endpoint to be more specific
-@router.websocket("/ws/{client_id}")
-async def handle_websocket_chat(websocket: WebSocket, client_id: str):
-    await manager.connect(websocket, client_id)
-    try:
-        while True:
-            data = await websocket.receive_json()
-            
-            try:
-                from modules.chatbot import chatbot
-                
-                # Send processing status
-                await manager.send_message(
-                    client_id,
-                    "status",
-                    "processing",
-                    is_processing=True
-                )
-
-                # Get streaming response from chatbot
-                response_stream = chatbot.get_streaming_response(data["message"])
-                await manager.stream_response(client_id, response_stream)
-
-            except Exception as e:
-                await manager.send_message(client_id, "error", str(e))
-
-    except WebSocketDisconnect:
-        manager.disconnect(client_id)
-
-# Rename chat endpoint to be more specific
+# Regular chat endpoint (non-streaming)
 @router.post("/message")
 async def handle_chat_message(request: ChatRequest):
     try:
@@ -111,3 +77,12 @@ async def handle_chat_message(request: ChatRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Health check for chat service
+@router.get("/health")
+async def chat_health():
+    return {
+        "status": "ok",
+        "service": "chat",
+        "timestamp": datetime.now().isoformat()
+    }

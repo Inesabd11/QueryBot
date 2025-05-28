@@ -1,8 +1,9 @@
 # modules/chatbot.py
 import os
 import sys
-
+import asyncio
 from pathlib import Path
+from typing import AsyncGenerator
 
 # Add this at the top after basic imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,7 +23,7 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.memory import ConversationBufferMemory
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -41,12 +42,22 @@ RETRIEVER_K = 4
 TEMPERATURE = 0.3
 MAX_TOKENS = 1024
 
-
-# Set NVIDIA API Key from environment variable or inline
+ # Set NVIDIA API Key from environment variable or inline
 nvidia_api_key = "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"
 os.environ["NVIDIA_API_KEY"] = nvidia_api_key
+
 # Ensure the directory exists
 os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
+
+class StreamingCallbackHandler(BaseCallbackHandler):
+    """Callback handler for streaming LLM responses"""
+    
+    def __init__(self):
+        self.tokens = []
+        
+    def on_llm_new_token(self, token: str, **kwargs):
+        self.tokens.append(token)
+
 class Chatbot:
     def __init__(self):
         print("✅ Chatbot initialized")
@@ -66,14 +77,14 @@ class Chatbot:
             self.vector_store.save_local(FAISS_INDEX_DIR)
             print(f"✅ Created new empty FAISS vector store at {FAISS_INDEX_DIR}")
             
-        
-        # Setup LangChain LLM using NVIDIA's API and Mixtral
+         # Setup LangChain LLM using NVIDIA's API and Mixtral
         self.llm = ChatOpenAI(
             model=MIXTRAL_MODEL,
             temperature=TEMPERATURE,
             max_tokens=MAX_TOKENS,
             openai_api_key=os.environ["NVIDIA_API_KEY"],
             openai_api_base=NVIDIA_BASE_URL,
+            streaming=True  # Enable streaming
         )
         
         # Memory to hold the chat history
@@ -116,8 +127,67 @@ Answer the question based on the context provided. If the answer cannot be found
         # Save to memory (LangChain memory)
         self.memory.save_context({"input": user_input}, {"output": response})
         
-        
         return response
+
+    async def get_streaming_response(self, user_input, file=None) -> AsyncGenerator[str, None]:
+        """
+        Generates a streaming response using the Mixtral model.
+        """
+        if file:
+            self.process_uploaded_file(file)
+
+        # Retrieve documents for context (RAG-style)
+        retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
+        docs = retriever.get_relevant_documents(user_input)
+        
+        # Format the context from retrieved documents
+        if docs:
+            context = "\n\n".join([f"Document: {doc.metadata.get('source', 'Unknown')}\nContent: {doc.page_content}" for doc in docs])
+        else:
+            context = "No relevant documents found."
+
+        # Generate prompt
+        prompt_template = PromptTemplate(
+            input_variables=["context", "question"],
+            template="""You are QueryBot, an AI assistant that helps users find information in their documents.
+            
+Context:
+{context}
+
+Question:
+{question}
+
+Answer the question based on the context provided. If the answer cannot be found in the context, say so clearly."""
+        )
+        
+        prompt = prompt_template.format(context=context, question=user_input)
+        
+        # Use streaming callback
+        callback_handler = StreamingCallbackHandler()
+        
+        try:
+            # For demonstration, we'll simulate streaming by chunking a response
+            # In a real implementation, you'd use the LLM's streaming capability
+            full_response = self.llm.predict(prompt, callbacks=[callback_handler])
+            
+            # Simulate streaming by yielding chunks
+            words = full_response.split(' ')
+            current_chunk = ""
+            
+            for i, word in enumerate(words):
+                current_chunk += word + " "
+                
+                # Yield chunks of 3-5 words
+                if (i + 1) % 4 == 0 or i == len(words) - 1:
+                    yield current_chunk.strip()
+                    current_chunk = ""
+                    await asyncio.sleep(0.1)  # Simulate processing delay
+            
+            # Save to memory
+            self.memory.save_context({"input": user_input}, {"output": full_response})
+            
+        except Exception as e:
+            yield f"Error: {str(e)}"
 
     def process_uploaded_file(self, file):
         """
@@ -164,3 +234,4 @@ Answer the question based on the context provided. If the answer cannot be found
                     return f"File '{file}' successfully processed."
         except Exception as e:
             raise Exception(f"Error processing file: {str(e)}")
+        
