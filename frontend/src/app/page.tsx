@@ -4,15 +4,143 @@ import { ThemeProvider, useTheme } from '@/components/chat/theme/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ChatHistoryContainer } from '@/components/ChatHistory';
 import { MessageBubble } from '@/components/MessageBubble';
-import { ChatHistory, ChatMessage } from '@/hooks/useChat';
+import { ChatHistory, ChatMessage, FileUpload, SSEService } from '@/hooks/useChat';
 import { formatTimestamp } from '@/utils/fileUtils';
-import { SSEService } from '@/hooks/useChat';
+
 import { useFileUpload } from '@/hooks/useFileUploads';
 import { BotMessageSquare, MessageCircleMore } from 'lucide-react'
 import './globals.css';
 import { 
   Search, Trash2, UploadCloud, Sun, Moon, FileText, X, MessageCircle, ChevronLeft, Send, Loader2, Menu, Bot, ArrowDown,
 } from 'lucide-react';
+
+// Custom useChat hook
+const useChat = () => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(true);
+  const sseServiceRef = useRef<SSEService | null>(null);
+
+  // Initialize SSE service
+  useEffect(() => {
+    const callbacks = {
+      onMessage: (message: ChatMessage) => {
+        setMessages(prev => {
+          // Replace existing message with same ID or add new one
+          const existingIndex = prev.findIndex(m => m.id === message.id);
+          if (existingIndex >= 0) {
+            const newMessages = [...prev];
+            newMessages[existingIndex] = message;
+            return newMessages;
+          }
+          return [...prev, message];
+        });
+      },
+      onError: (error: Error) => {
+        setError(error.message);
+        setIsLoading(false);
+        setIsConnected(false);
+      },
+      onStatusUpdate: (status: string) => {
+        console.log('Status:', status);
+      },
+      onStreamStart: () => {
+        setIsLoading(true);
+        setError(null);
+      },
+      onStreamEnd: () => {
+        setIsLoading(false);
+      }
+    };
+
+    sseServiceRef.current = new SSEService(callbacks);
+    return () => {
+      sseServiceRef.current?.disconnect();
+    };
+  }, []);
+
+  const sendMessage = useCallback(async (text: string, files: FileUpload[] = []) => {
+    if (!text.trim() && files.length === 0) return;
+
+    try {
+      setIsConnected(true);
+      
+      // Add user message immediately
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        content: text,
+        sender: 'user',
+        role: 'user',
+        timestamp: new Date().toISOString(),
+        type: files.length > 0 ? 'file' : 'text',
+        metadata: files.length > 0 ? {
+          fileName: files.map(f => f.file.name).join(', '),
+          fileType: files.map(f => f.type).join(', ')
+        } : undefined
+      };
+
+      setMessages(prev => [...prev, userMessage]);
+
+      // Handle file uploads first if any
+      if (files.length > 0) {
+        await handleFileUploads(files);
+      }
+
+      // Send message via SSE
+      await sseServiceRef.current?.sendMessage(text, messages);
+      
+    } catch (err) {
+      console.error('Send message error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send message');
+      setIsLoading(false);
+    }
+  }, [messages]);
+
+  const handleFileUploads = async (files: FileUpload[]) => {
+    const formData = new FormData();
+    files.forEach(upload => {
+      formData.append('file', upload.file);
+    });
+
+    try {
+      const response = await fetch('http://localhost:8000/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('File upload result:', result);
+    } catch (err) {
+      console.error('File upload error:', err);
+      setError(err instanceof Error ? err.message : 'File upload failed');
+    }
+  };
+
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setError(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+
+  return {
+    messages,
+    isLoading,
+    error,
+    isConnected,
+    sendMessage,
+    clearChat,
+    clearError,
+  };
+};
 
 function ChatBot() {
   const { theme, toggleTheme, getThemeClasses } = useTheme();
@@ -24,7 +152,7 @@ function ChatBot() {
     sendMessage, 
     clearChat, 
     clearError,
-    connectWebSocket
+    
   } = useChat();
   const {
     uploadedFiles,
@@ -46,20 +174,7 @@ function ChatBot() {
 
   // Dummy chat history data (replace with real data or state as needed)
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
-
-  // Connection status monitoring
-  useEffect(() => {
-    if (!isConnected) {
-      // Try to reconnect every 5 seconds if not connected
-      const reconnectInterval = setInterval(() => {
-        console.log('Attempting to reconnect...');
-        connectWebSocket();
-      }, 5000);
-
-      return () => clearInterval(reconnectInterval);
-    }
-  }, [isConnected, connectWebSocket]);
-
+ 
   // Scroll to bottom on new messages
   useEffect(() => {
     if (messages.length > 0) {
@@ -105,7 +220,7 @@ function ChatBot() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-  }
+    }
   };
 
   // Search Messages
@@ -143,7 +258,7 @@ function ChatBot() {
 
   // Add error notification
   useEffect(() => {
-     if (error) {
+    if (error) {
       console.error('Chat Error:', error);
       
       // Auto-clear error after 5 seconds
@@ -522,12 +637,12 @@ function ChatBot() {
             Press Enter to send, Shift+Enter for new line
           </div>
         </div>
-     </div>
+      </div>
     </div>
   );
 }
 
-export default function page() {
+export default function Page() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
