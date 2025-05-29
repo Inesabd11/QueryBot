@@ -1,324 +1,220 @@
-'use client';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ThemeProvider, useTheme } from '@/components/chat/theme/ThemeContext';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ChatHistoryContainer } from '@/components/ChatHistory';
-import { MessageBubble } from '@/components/MessageBubble';
-import { ChatHistory, ChatMessage, FileUpload, SSEService } from '@/hooks/useChat';
-import { formatTimestamp } from '@/utils/fileUtils';
+"use client"
+import type React from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { ThemeProvider, useTheme } from "@/components/chat/theme/ThemeContext"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { ChatHistoryContainer } from "@/components/ChatHistory"
+import { MessageBubble } from "@/components/MessageBubble"
+import { type ChatHistory, useChat } from "@/hooks/useChat"
 
-import { useFileUpload } from '@/hooks/useFileUploads';
-import { BotMessageSquare, MessageCircleMore } from 'lucide-react'
-import './globals.css';
-import { 
-  Search, Trash2, UploadCloud, Sun, Moon, FileText, X, MessageCircle, ChevronLeft, Send, Loader2, Menu, Bot, ArrowDown,
-} from 'lucide-react';
+import { useFileUpload } from "@/hooks/useFileUploads"
+import { BotMessageSquare, MessageCircleMore } from "lucide-react"
+import "./globals.css"
+import {
+  Search,
+  Trash2,
+  UploadCloud,
+  Sun,
+  Moon,
+  FileText,
+  X,
+  ChevronLeft,
+  Send,
+  Loader2,
+  Menu,
+  Bot,
+  ArrowDown,
+} from "lucide-react"
 
-// Custom useChat hook
-const useChat = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(true);
-  const sseServiceRef = useRef<SSEService | null>(null);
-
-  // Initialize SSE service
-  useEffect(() => {
-    const callbacks = {
-      onMessage: (message: ChatMessage) => {
-        setMessages(prev => {
-          // Replace existing message with same ID or add new one
-          const existingIndex = prev.findIndex(m => m.id === message.id);
-          if (existingIndex >= 0) {
-            const newMessages = [...prev];
-            newMessages[existingIndex] = message;
-            return newMessages;
-          }
-          return [...prev, message];
-        });
-      },
-      onError: (error: Error) => {
-        setError(error.message);
-        setIsLoading(false);
-        setIsConnected(false);
-      },
-      onStatusUpdate: (status: string) => {
-        console.log('Status:', status);
-      },
-      onStreamStart: () => {
-        setIsLoading(true);
-        setError(null);
-      },
-      onStreamEnd: () => {
-        setIsLoading(false);
-      }
-    };
-
-    sseServiceRef.current = new SSEService(callbacks);
-    return () => {
-      sseServiceRef.current?.disconnect();
-    };
-  }, []);
-
-  const sendMessage = useCallback(async (text: string, files: FileUpload[] = []) => {
-    if (!text.trim() && files.length === 0) return;
-
-    try {
-      setIsConnected(true);
-      
-      // Add user message immediately
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        content: text,
-        sender: 'user',
-        role: 'user',
-        timestamp: new Date().toISOString(),
-        type: files.length > 0 ? 'file' : 'text',
-        metadata: files.length > 0 ? {
-          fileName: files.map(f => f.file.name).join(', '),
-          fileType: files.map(f => f.type).join(', ')
-        } : undefined
-      };
-
-      setMessages(prev => [...prev, userMessage]);
-
-      // Handle file uploads first if any
-      if (files.length > 0) {
-        await handleFileUploads(files);
-      }
-
-      // Send message via SSE
-      await sseServiceRef.current?.sendMessage(text, messages);
-      
-    } catch (err) {
-      console.error('Send message error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send message');
-      setIsLoading(false);
-    }
-  }, [messages]);
-
-  const handleFileUploads = async (files: FileUpload[]) => {
-    const formData = new FormData();
-    files.forEach(upload => {
-      formData.append('file', upload.file);
-    });
-
-    try {
-      const response = await fetch('http://localhost:8000/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('File upload result:', result);
-    } catch (err) {
-      console.error('File upload error:', err);
-      setError(err instanceof Error ? err.message : 'File upload failed');
-    }
-  };
-
-  const clearChat = useCallback(() => {
-    setMessages([]);
-    setError(null);
-  }, []);
-
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
-
-  return {
+function ChatBot() {
+  const { theme, toggleTheme, getThemeClasses } = useTheme()
+  const {
     messages,
     isLoading,
     error,
     isConnected,
     sendMessage,
+    addUserFileMessage,
+    addBotMessage,
     clearChat,
     clearError,
-  };
-};
+  } = useChat()
 
-function ChatBot() {
-  const { theme, toggleTheme, getThemeClasses } = useTheme();
-  const { 
-    messages, 
-    isLoading, 
-    error, 
-    isConnected,
-    sendMessage, 
-    clearChat, 
-    clearError,
-    
-  } = useChat();
   const {
     uploadedFiles,
-    setUploadedFiles,
     fileInputRef,
-    handleFileUpload
-  } = useFileUpload();
+    handleFileUpload,
+    uploadFile,
+    uploadAllFiles,
+    removeFile,
+    isUploading,
+    uploadError,
+    clearError: clearUploadError,
+  } = useFileUpload(
+    // Called when a file is being uploaded (to add as user message)
+    (file) => addUserFileMessage(file),
+    // Called when upload completes (to add bot response)
+    (result) => {
+      if (result.success) {
+        addBotMessage(
+          result.message ||
+            `File "${result.filename}" has been uploaded and processed successfully. You can now ask questions about its content.`,
+        )
+      } else {
+        addBotMessage(`Failed to upload "${result.filename}": ${result.error}`, true)
+      }
+    },
+  )
 
   // State Management
-  const [inputText, setInputText] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [newMessageAlert, setNewMessageAlert] = useState(false);
+  const [inputText, setInputText] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [newMessageAlert, setNewMessageAlert] = useState(false)
 
   // Refs
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
   // Dummy chat history data (replace with real data or state as needed)
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
- 
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([])
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (messages.length > 0) {
-      const shouldAutoScroll = isUserNearBottom();
+      const shouldAutoScroll = isUserNearBottom()
       if (shouldAutoScroll) {
-        scrollToBottom();
+        scrollToBottom()
       } else {
-        setNewMessageAlert(true);
+        setNewMessageAlert(true)
       }
     }
-  }, [messages]);
+  }, [messages])
 
   // Check if user is near bottom of chat
   const isUserNearBottom = () => {
-    if (!chatContainerRef.current) return true;
-    
-    const container = chatContainerRef.current;
-    const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    return scrollBottom < 100; // If user is within 100px of bottom
-  };
+    if (!chatContainerRef.current) return true
+
+    const container = chatContainerRef.current
+    const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    return scrollBottom < 100 // If user is within 100px of bottom
+  }
 
   // Scroll to bottom
   const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setNewMessageAlert(false);
-  };
-  
-  // Simplified send handler
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    setNewMessageAlert(false)
+  }
+
+  // Enhanced send handler with file upload
   const handleSend = async () => {
-    if (inputText.trim() === '' && uploadedFiles.length === 0) return;
-    
+    if (inputText.trim() === "" && uploadedFiles.length === 0) return
+
     try {
-      await sendMessage(inputText, uploadedFiles);
-      setInputText('');
-      setUploadedFiles([]);
+      // Handle file uploads first if any
+      if (uploadedFiles.length > 0) {
+        await uploadAllFiles()
+      }
+
+      // Send the text message if there is one
+      if (inputText.trim()) {
+        await sendMessage(inputText)
+        setInputText("")
+      }
     } catch (err) {
-      console.error('Failed to send message:', err);
+      console.error("Failed to send message:", err)
     }
-  };
+  }
 
   // Handle Enter key press
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
     }
-  };
+  }
 
   // Search Messages
   const filteredMessages = useMemo(() => {
-    if (!searchQuery) return messages;
-    return messages.filter(msg => 
-      msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [messages, searchQuery]);
-  
-  const renderChatHistoryItem = (chat: ChatHistory) => {
-    return (
-      <div 
-        key={chat.id}
-        className="flex items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer mb-1 transition-colors duration-200"
-      >
-        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center mr-3">
-          <MessageCircle className="h-5 w-5 text-gray-500 dark:text-gray-300" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{chat.title}</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{chat.preview}</p>
-        </div>
-        <div className="ml-2 flex flex-col items-end">
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {formatTimestamp(Number(chat.timestamp))}
-          </span>
-          {chat.unread && (
-            <span className="h-2 w-2 bg-blue-500 rounded-full mt-1"></span>
-          )}
-        </div>
-      </div>
-    );
-  };
+    if (!searchQuery) return messages
+    return messages.filter((msg) => msg.content.toLowerCase().includes(searchQuery.toLowerCase()))
+  }, [messages, searchQuery])
 
   // Add error notification
   useEffect(() => {
     if (error) {
-      console.error('Chat Error:', error);
-      
+      console.error("Chat Error:", error)
+
       // Auto-clear error after 5 seconds
       const timer = setTimeout(() => {
-        clearError();
-      }, 5000);
+        clearError()
+      }, 5000)
 
-      return () => clearTimeout(timer);
+      return () => clearTimeout(timer)
     }
-  }, [error, clearError]);
+  }, [error, clearError])
+
+  // Handle upload errors
+  useEffect(() => {
+    if (uploadError) {
+      console.error("Upload Error:", uploadError)
+
+      // Auto-clear upload error after 5 seconds
+      const timer = setTimeout(() => {
+        clearUploadError()
+      }, 5000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [uploadError, clearUploadError])
 
   // Connection status indicator
   const ConnectionStatus = () => (
-    <div className={`flex items-center gap-2 text-xs ${
-      isConnected ? 'text-green-600' : 'text-red-600'
-    }`}>
-      <div className={`w-2 h-2 rounded-full ${
-        isConnected ? 'bg-green-500' : 'bg-red-500'
-      }`} />
-      {isConnected ? 'Connected' : 'Disconnected'}
+    <div className={`flex items-center gap-2 text-xs ${isConnected ? "text-green-600" : "text-red-600"}`}>
+      <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
+      {isConnected ? "Connected" : "Disconnected"}
     </div>
-  );
+  )
 
   // Auto-resize textarea
   const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
-    element.style.height = 'auto';
-    element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
-  };
+    element.style.height = "auto"
+    element.style.height = `${Math.min(element.scrollHeight, 120)}px`
+  }
 
   // Render
   return (
-    <div 
+    <div
       className={`
         flex h-screen overflow-hidden
-        ${theme === 'black-dark' ? 'dark bg-gray-900 text-white' : 
-         theme === 'blue-dark' ? 'dark bg-gray-800 text-white' : 
-         'bg-gray-50 text-black'}
+        ${
+          theme === "black-dark"
+            ? "dark bg-gray-900 text-white"
+            : theme === "blue-dark"
+              ? "dark bg-gray-800 text-white"
+              : "bg-gray-50 text-black"
+        }
         transition-colors duration-300
       `}
     >
       {/* Sidebar */}
-      <div 
+      <div
         className={`
           flex-shrink-0 
           ${getThemeClasses().sidebar}
           transition-all duration-300 ease-in-out
-          ${isSidebarOpen ? 'w-72' : 'w-0'}
+          ${isSidebarOpen ? "w-72" : "w-0"}
           md:relative absolute h-full z-20
         `}
       >
-        <ChatHistoryContainer 
-          onClose={() => setIsSidebarOpen(false)} 
-          isSidebarOpen={isSidebarOpen} 
-        />
+        <ChatHistoryContainer onClose={() => setIsSidebarOpen(false)} isSidebarOpen={isSidebarOpen} />
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
         {/* Header */}
-        <header 
+        <header
           className={`
             flex justify-between items-center p-4 border-b mt-4 rounded-xl
             ${getThemeClasses().header}
@@ -332,35 +228,42 @@ function ChatBot() {
             >
               {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
             </button>
-            
+
             <div className="flex items-center gap-2">
-              <div className={getThemeClasses().bg + " h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center"}>
+              <div
+                className={
+                  getThemeClasses().bg +
+                  " h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center"
+                }
+              >
                 <BotMessageSquare className="h-5 w-5 text-white" />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">QueryBot</h1>
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">
+                  QueryBot
+                </h1>
                 <ConnectionStatus />
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Theme Toggle */}
-            <button 
-              onClick={toggleTheme} 
+            <button
+              onClick={toggleTheme}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
               aria-label="Toggle theme"
             >
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+              {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
             {/* Search Toggle */}
-            <button 
+            <button
               onClick={() => setIsSearching(!isSearching)}
               className={`p-2 rounded-full transition-colors duration-200 ${
-                isSearching 
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                isSearching
+                  ? "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
               aria-label="Search messages"
             >
@@ -368,10 +271,10 @@ function ChatBot() {
             </button>
 
             {/* Clear History */}
-            <button 
+            <button
               onClick={() => {
                 if (confirm("Are you sure you want to clear the current conversation?")) {
-                  clearChat(); 
+                  clearChat()
                 }
               }}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
@@ -384,36 +287,39 @@ function ChatBot() {
 
         {/* Search Bar */}
         {isSearching && (
-          <div 
+          <div
             className={`
               p-3 border-b
-              ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' :
-               theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' :
-               'bg-white border-gray-200'}
+              ${
+                theme === "black-dark"
+                  ? "bg-gray-800 border-gray-700"
+                  : theme === "blue-dark"
+                    ? "bg-blue-900 border-blue-800"
+                    : "bg-white border-gray-200"
+              }
               animate-fadeIn
             `}
           >
             <div className="relative">
-              <input 
+              <input
                 type="text"
                 placeholder="Search in conversation..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`
                   w-full p-2 pl-8 rounded-lg border 
-                  ${theme === 'light' 
-                    ? 'bg-gray-50 border-gray-200 text-black' 
-                    : 'bg-gray-700 border-gray-600 text-white'}
+                  ${
+                    theme === "light"
+                      ? "bg-gray-50 border-gray-200 text-black"
+                      : "bg-gray-700 border-gray-600 text-white"
+                  }
                   focus:outline-none focus:ring-2 focus:ring-blue-500
                 `}
               />
-              <Search 
-                size={16} 
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400"
-              />
+              <Search size={16} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => setSearchQuery("")}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                 >
                   <X size={16} />
@@ -424,17 +330,24 @@ function ChatBot() {
         )}
 
         {/* Error Banner */}
-        {error && (
+        {(error || uploadError) && (
           <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 mb-4 rounded shadow-md">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
                 </svg>
-                <p className="text-sm">{error}</p>
+                <p className="text-sm">{error || uploadError}</p>
               </div>
               <button
-                onClick={clearError}
+                onClick={() => {
+                  clearError()
+                  clearUploadError()
+                }}
                 className="text-red-700 hover:text-red-900 focus:outline-none"
               >
                 <X size={16} />
@@ -444,7 +357,7 @@ function ChatBot() {
         )}
 
         {/* Chat Messages */}
-        <div 
+        <div
           ref={chatContainerRef}
           className={`
             flex-1 overflow-y-auto p-4 rounded-xl shadow-lg
@@ -473,16 +386,18 @@ function ChatBot() {
                     getThemeClasses={getThemeClasses}
                   />
                 ))}
-                {isLoading && (
+                {(isLoading || isUploading) && (
                   <div className="flex justify-start mb-4 items-end">
-                    <div className={
-                      "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center mr-2 " +
-                      (theme === 'light'
-                        ? "bg-gradient-to-br from-purple-500 to-blue-500"
-                        : theme === 'blue-dark'
-                        ? "bg-gradient-to-br from-blue-500 to-indigo-700"
-                        : "bg-gradient-to-br from-gray-600 to-gray-700")
-                    }>
+                    <div
+                      className={
+                        "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center mr-2 " +
+                        (theme === "light"
+                          ? "bg-gradient-to-br from-purple-500 to-blue-500"
+                          : theme === "blue-dark"
+                            ? "bg-gradient-to-br from-blue-500 to-indigo-700"
+                            : "bg-gradient-to-br from-gray-600 to-gray-700")
+                      }
+                    >
                       <Bot className="h-5 w-5 text-white" />
                     </div>
                     <div className={getThemeClasses().bg + " p-3 rounded-2xl rounded-tl-sm shadow-sm"}>
@@ -491,6 +406,7 @@ function ChatBot() {
                         <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-pulse delay-75"></div>
                         <div className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-pulse delay-150"></div>
                       </div>
+                      <p className="text-xs mt-1 opacity-70">{isUploading ? "Processing files..." : "Thinking..."}</p>
                     </div>
                   </div>
                 )}
@@ -498,7 +414,7 @@ function ChatBot() {
               <div ref={chatEndRef} />
             </>
           )}
-          
+
           {/* Scroll to bottom button */}
           {newMessageAlert && (
             <button
@@ -512,23 +428,27 @@ function ChatBot() {
 
         {/* File Preview */}
         {uploadedFiles.length > 0 && (
-          <div 
+          <div
             className={`
               flex gap-2 p-2 overflow-x-auto border-t
-              ${theme === 'black-dark' ? 'bg-gray-800 border-gray-700' : 
-               theme === 'blue-dark' ? 'bg-blue-900 border-blue-800' : 
-               'bg-white border-gray-200'}
+              ${
+                theme === "black-dark"
+                  ? "bg-gray-800 border-gray-700"
+                  : theme === "blue-dark"
+                    ? "bg-blue-900 border-blue-800"
+                    : "bg-white border-gray-200"
+              }
             `}
           >
             {uploadedFiles.map((upload, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className="relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm"
               >
-                {upload.type.startsWith('image/') ? (
-                  <img 
-                    src={upload.preview} 
-                    alt="Preview" 
+                {upload.type.startsWith("image/") ? (
+                  <img
+                    src={upload.preview || "/placeholder.svg"}
+                    alt="Preview"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -536,12 +456,8 @@ function ChatBot() {
                     <FileText size={24} className="text-gray-500 dark:text-gray-400" />
                   </div>
                 )}
-                <button 
-                  onClick={() => {
-                    setUploadedFiles(prev => 
-                      prev.filter((_, i) => i !== index)
-                    );
-                  }}
+                <button
+                  onClick={() => removeFile(index)}
                   className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full shadow-sm hover:bg-red-600 transition-colors duration-200"
                 >
                   <X size={10} />
@@ -549,13 +465,19 @@ function ChatBot() {
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate">
                   {upload.file.name.substring(0, 12)}
                 </div>
+                {/* Upload status indicator */}
+                {isUploading && (
+                  <div className="absolute top-1 left-1">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
 
         {/* Input Area */}
-        <div 
+        <div
           className={`
             p-4 border-t rounded-xl shadow-lg mb-4
             ${getThemeClasses().messageBox}
@@ -563,83 +485,77 @@ function ChatBot() {
         >
           <div className="flex items-end gap-2">
             {/* File Upload */}
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              multiple
-              className="hidden"
-            />
-            <button 
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} multiple className="hidden" />
+            <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
+              disabled={isLoading || isUploading}
               className={`
                 p-2 rounded-full transition-colors duration-200
-                ${isLoading 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : theme === 'light'
-                  ? 'hover:bg-gray-100 text-gray-600' 
-                  : 'hover:bg-gray-700 text-gray-300'}
+                ${
+                  isLoading || isUploading
+                    ? "opacity-50 cursor-not-allowed"
+                    : theme === "light"
+                      ? "hover:bg-gray-100 text-gray-600"
+                      : "hover:bg-gray-700 text-gray-300"
+                }
               `}
               aria-label="Upload file"
             >
               <UploadCloud size={20} />
             </button>
-            
+
             {/* Text Input */}
             <div className="flex-1 relative">
-              <textarea 
+              <textarea
                 value={inputText}
                 onChange={(e) => {
-                  setInputText(e.target.value);
-                  adjustTextareaHeight(e.target);
+                  setInputText(e.target.value)
+                  adjustTextareaHeight(e.target)
                 }}
                 onKeyDown={handleKeyPress}
-                disabled={isLoading}
+                disabled={isLoading || isUploading}
                 placeholder={isConnected ? "Type your message..." : "Connecting to server..."}
                 rows={1}
                 className={`
                   w-full p-3 rounded-2xl shadow-sm resize-none
-                  ${(theme === 'blue-dark' || theme === 'black-dark')
-                    ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600' 
-                    : 'bg-gray-50 text-black placeholder-gray-500 border-gray-200'}
-                  ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${
+                    theme === "blue-dark" || theme === "black-dark"
+                      ? "bg-gray-700 text-white placeholder-gray-400 border-gray-600"
+                      : "bg-gray-50 text-black placeholder-gray-500 border-gray-200"
+                  }
+                  ${isLoading || isUploading ? "opacity-50 cursor-not-allowed" : ""}
                   focus:outline-none focus:ring-2 focus:ring-blue-500 border
                 `}
                 style={{
-                  minHeight: '46px',
-                  maxHeight: '120px'
+                  minHeight: "46px",
+                  maxHeight: "120px",
                 }}
               />
             </div>
 
             {/* Send Button */}
-            <button 
+            <button
               onClick={handleSend}
-              disabled={isLoading || (inputText.trim() === '' && uploadedFiles.length === 0)}
+              disabled={isLoading || isUploading || (inputText.trim() === "" && uploadedFiles.length === 0)}
               className={`
                 p-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700
                 text-white shadow-md transition-all duration-200
-                ${(isLoading || (inputText.trim() === '' && uploadedFiles.length === 0))
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : 'hover:shadow-lg'}
+                ${
+                  isLoading || isUploading || (inputText.trim() === "" && uploadedFiles.length === 0)
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:shadow-lg"
+                }
               `}
               aria-label="Send message"
             >
-              {isLoading ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <Send size={18} />
-              )}
+              {isLoading || isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={18} />}
             </button>
           </div>
-          <div className="text-xs text-gray-400 mt-2 text-center">
-            Press Enter to send, Shift+Enter for new line
-          </div>
+          <div className="text-xs text-gray-400 mt-2 text-center">Press Enter to send, Shift+Enter for new line</div>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 export default function Page() {
@@ -649,5 +565,5 @@ export default function Page() {
         <ChatBot />
       </ThemeProvider>
     </ErrorBoundary>
-  );
+  )
 }

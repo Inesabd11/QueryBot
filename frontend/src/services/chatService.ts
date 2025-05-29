@@ -33,19 +33,5 @@ export class ChatService {
     }
 
     return response.json();
-  }
-
-  connectWebSocket(onMessage: (msg: ChatMessage) => void): void {
-    this.socket = new WebSocket(`ws://localhost:8000/ws/chat`);
-    
-    this.socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      onMessage(message);
-    };
-  }
-
-  disconnectWebSocket(): void {
-    this.socket?.close();
-    this.socket = null;
-  }
+  } 
 }

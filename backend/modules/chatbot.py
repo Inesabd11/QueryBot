@@ -1,62 +1,47 @@
-# modules/chatbot.py
-import os
+import os 
 import sys
 import asyncio
 from pathlib import Path
-from typing import AsyncGenerator
+import logging
+from typing import AsyncGenerator, Optional, List, Dict, Any
+from datetime import datetime
+import json
+import tempfile
+from io import BytesIO
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add this at the top after basic imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Now import local modules
-from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR
-from .chat_handler import save_message, load_history  # Use relative import
-from .document_loader import load_document, DocumentLoaderFactory  # Use relative import
+# Import paths from config
+from config.paths import FAISS_INDEX_DIR, VECTOR_STORE_DIR, DATA_DIR
 
-from langchain_community.chat_models import ChatOpenAI
-from langchain_community.vectorstores import FAISS
-
-from openai import OpenAI
-from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableMap, RunnablePassthrough, RunnableLambda, RunnableSequence
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain.schema import Document
-from langchain.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.document_loaders import PyPDFLoader, TextLoader, UnstructuredMarkdownLoader
+from langchain.document_loaders import UnstructuredWordDocumentLoader, UnstructuredHTMLLoader
+from langchain.document_loaders import CSVLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
-
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.prompts import PromptTemplate
 from langchain.schema import Document
-from io import BytesIO
-import tempfile
+from langchain.chat_models import ChatOpenAI
 
-# Configuration from my setup
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-MIXTRAL_MODEL = "mistralai/mixtral-8x7b-instruct-v0.1"
-VECTOR_STORE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "vector_store"))
-FAISS_INDEX_DIR = os.path.join(VECTOR_STORE_DIR, "faiss_index")
+from config.config import (
+    EMBEDDING_MODEL,
+    MIXTRAL_MODEL,
+    TEMPERATURE,
+    MAX_TOKENS,
+    NVIDIA_BASE_URL,
+    RETRIEVER_K
+)
 
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-RETRIEVER_K = 4
-TEMPERATURE = 0.3
-MAX_TOKENS = 1024
-
- # Set NVIDIA API Key from environment variable or inline
-nvidia_api_key = "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"
-os.environ["NVIDIA_API_KEY"] = nvidia_api_key
-
-# Ensure the directory exists
-os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
-
-class StreamingCallbackHandler(BaseCallbackHandler):
-    """Callback handler for streaming LLM responses"""
-    
-    def __init__(self):
-        self.tokens = []
-        
-    def on_llm_new_token(self, token: str, **kwargs):
-        self.tokens.append(token)
+# Replace with import from document_loader:
+from .document_loader import load_document, load_all_documents_from_directory
 
 class Chatbot:
     def __init__(self):
@@ -76,8 +61,11 @@ class Chatbot:
             os.makedirs(os.path.dirname(FAISS_INDEX_DIR), exist_ok=True)
             self.vector_store.save_local(FAISS_INDEX_DIR)
             print(f"✅ Created new empty FAISS vector store at {FAISS_INDEX_DIR}")
+        
+        # Load documents from data/raw folder on startup
+        self._load_documents_from_data_folder()
             
-         # Setup LangChain LLM using NVIDIA's API and Mixtral
+        # Setup LangChain LLM using NVIDIA's API and Mixtral
         self.llm = ChatOpenAI(
             model=MIXTRAL_MODEL,
             temperature=TEMPERATURE,
@@ -90,85 +78,115 @@ class Chatbot:
         # Memory to hold the chat history
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-    def get_response(self, user_input, file=None):
-        """
-        Generates a response using the Mixtral model and optionally updates vector store with uploaded file.
-        """
-        if file:
-            self.process_uploaded_file(file)
-
-        # Retrieve documents for context (RAG-style)
-        retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
-        docs = retriever.get_relevant_documents(user_input)
-        
-        # Format the context from retrieved documents
-        if docs:
-            context = "\n\n".join([f"Document: {doc.metadata.get('source', 'Unknown')}\nContent: {doc.page_content}" for doc in docs])
-        else:
-            context = "No relevant documents found."
-
-        # Generate prompt
-        prompt_template = PromptTemplate(
-            input_variables=["context", "question"],
-            template="""You are QueryBot, an AI assistant that helps users find information in their documents.
-            
-Context:
-{context}
-
-Question:
-{question}
-
-Answer the question based on the context provided. If the answer cannot be found in the context, say so clearly."""
-        )
-        
-        prompt = prompt_template.format(context=context, question=user_input)
-        response = self.llm.predict(prompt)
-
-        # Save to memory (LangChain memory)
-        self.memory.save_context({"input": user_input}, {"output": response})
-        
-        return response
-
-    async def get_streaming_response(self, user_input, file=None) -> AsyncGenerator[str, None]:
-        """
-        Generates a streaming response using the Mixtral model.
-        """
-        if file:
-            self.process_uploaded_file(file)
-
-        # Retrieve documents for context (RAG-style)
-        retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
-        docs = retriever.get_relevant_documents(user_input)
-        
-        # Format the context from retrieved documents
-        if docs:
-            context = "\n\n".join([f"Document: {doc.metadata.get('source', 'Unknown')}\nContent: {doc.page_content}" for doc in docs])
-        else:
-            context = "No relevant documents found."
-
-        # Generate prompt
-        prompt_template = PromptTemplate(
-            input_variables=["context", "question"],
-            template="""You are QueryBot, an AI assistant that helps users find information in their documents.
-            
-Context:
-{context}
-
-Question:
-{question}
-
-Answer the question based on the context provided. If the answer cannot be found in the context, say so clearly."""
-        )
-        
-        prompt = prompt_template.format(context=context, question=user_input)
-        
-        # Use streaming callback
-        callback_handler = StreamingCallbackHandler()
-        
+    # Update the _load_documents_from_data_folder method to use the comprehensive loader:
+    def _load_documents_from_data_folder(self):
+        """Load all documents from the data/raw folder into the vector store"""
         try:
-            # For demonstration, we'll simulate streaming by chunking a response
-            # In a real implementation, you'd use the LLM's streaming capability
-            full_response = self.llm.predict(prompt, callbacks=[callback_handler])
+            raw_data_path = os.path.join(DATA_DIR, "raw")
+        
+            if not os.path.exists(raw_data_path):
+                print(f"⚠️ Data folder not found: {raw_data_path}")
+                return
+        
+            # Use the comprehensive document loader
+            all_docs = load_all_documents_from_directory(raw_data_path)
+        
+            if all_docs:
+                self.vector_store.add_documents(all_docs)
+                self.vector_store.save_local(FAISS_INDEX_DIR)
+                print(f"✅ Total {len(all_docs)} documents loaded from data/raw folder")
+            else:
+                print("⚠️ No documents found in data/raw folder")
+            
+        except Exception as e:
+            print(f"❌ Error loading documents from data folder: {e}")
+
+    # Also update the process_uploaded_file method to use the existing logic:
+    def process_uploaded_file(self, file_path):
+        """
+        Processes an uploaded file and adds its content to the vector store.
+        """
+        try:
+            # Since we're now receiving a file path string from the router
+            if isinstance(file_path, str):
+                # Use the comprehensive document loader
+                docs = load_document(file_path)
+            
+                if docs and len(docs) > 0:
+                    # Add documents to the vector store
+                    self.vector_store.add_documents(docs)
+                    self.vector_store.save_local(FAISS_INDEX_DIR)
+                
+                    file_name = os.path.basename(file_path)
+                    print(f"✅ Successfully processed {len(docs)} document chunks from {file_name}")
+                    return f"File '{file_name}' successfully processed and added to the knowledge base. {len(docs)} document chunks were created."
+                else:
+                    raise Exception("No content could be extracted from the file")
+                
+            else:
+                raise Exception("Invalid file path provided")
+            
+        except Exception as e:
+            print(f"❌ Error processing file: {str(e)}")
+            raise Exception(f"Error processing file: {str(e)}")
+
+    async def get_streaming_response(self, user_input, chat_history=None) -> AsyncGenerator[str, None]:
+        """
+        Generates a streaming response using the Mixtral model with RAG.
+        """
+        try:
+            # Retrieve documents for context (RAG-style)
+            retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
+            docs = retriever.get_relevant_documents(user_input)
+            
+            # Format the context from retrieved documents
+            if docs:
+                context = "\n\n".join([f"Document: {doc.metadata.get('source', 'Unknown')}\nContent: {doc.page_content}" for doc in docs])
+                print(f"✅ Retrieved {len(docs)} relevant documents for RAG")
+            else:
+                context = "No relevant documents found in the knowledge base."
+                print("⚠️ No relevant documents found for query")
+
+            # Generate prompt with RAG context
+            prompt_template = PromptTemplate(
+                input_variables=["context", "question", "chat_history"],
+                template="""You are QueryBot, an AI assistant that helps users find information in their documents.
+
+Context from knowledge base:
+{context}
+
+Chat History:
+{chat_history}
+
+Current Question:
+{question}
+
+Instructions:
+- Answer the question based primarily on the context provided from the knowledge base
+- If the answer cannot be found in the context, clearly state this
+- Be concise but comprehensive
+- Reference specific documents when relevant
+- If chat history is relevant, incorporate it naturally
+
+Answer:"""
+            )
+            
+            # Format chat history
+            chat_history_text = ""
+            if chat_history:
+                for msg in chat_history[-5:]:  # Last 5 messages for context
+                    role = msg.get('role', 'unknown')
+                    content = msg.get('content', '')
+                    chat_history_text += f"{role}: {content}\n"
+            
+            prompt = prompt_template.format(
+                context=context, 
+                question=user_input,
+                chat_history=chat_history_text
+            )
+            
+            # Get full response first, then simulate streaming
+            full_response = self.llm.predict(prompt)
             
             # Simulate streaming by yielding chunks
             words = full_response.split(' ')
@@ -188,50 +206,83 @@ Answer the question based on the context provided. If the answer cannot be found
             
         except Exception as e:
             yield f"Error: {str(e)}"
+            print(f"❌ Error in streaming response: {e}")
 
-    def process_uploaded_file(self, file):
+    def get_response(self, user_input, chat_history=None):
         """
-        Processes an uploaded file and adds its content to the vector store.
+        Generates a response using the Mixtral model and RAG with chat history support.
         """
-        try:
-            # Handle different file types based on file content
-            if isinstance(file, BytesIO):
-                # This is a file-like object from FastAPI
-                file_content = file.read()
-                file_name = getattr(file, "filename", "uploaded_file")
-                
-                # Create a temporary file to process
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_name)[1]) as temp_file:
-                    temp_file.write(file_content)
-                    temp_path = temp_file.name
-                
-                # Process the file using your document loader
-                try:
-                    docs = load_document(temp_path)
-                    os.unlink(temp_path)  # Delete the temporary file
-                    
-                    # Add documents to the vector store
-                    self.vector_store.add_documents(docs)
-                    self.vector_store.save_local(FAISS_INDEX_DIR)
-                    return f"File '{file_name}' successfully processed and added to the vector store."
-                except Exception as e:
-                    os.unlink(temp_path)  # Ensure temp file is deleted even if processing fails
-                    raise e
-            else:
-                # This is a direct file path or a string
-                if hasattr(file, 'name'):
-                    # This is likely a file object from Gradio
-                    file_content = file.read().decode("utf-8")
-                    doc = Document(page_content=file_content, metadata={"source": file.name})
-                    self.vector_store.add_documents([doc])
-                    self.vector_store.save_local(FAISS_INDEX_DIR)
-                    return f"File '{file.name}' successfully processed."
-                else:
-                    # This is likely a string path
-                    docs = load_document(file)
-                    self.vector_store.add_documents(docs)
-                    self.vector_store.save_local(FAISS_INDEX_DIR)
-                    return f"File '{file}' successfully processed."
-        except Exception as e:
-            raise Exception(f"Error processing file: {str(e)}")
+        # Retrieve documents for context (RAG-style)
+        retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
+        docs = retriever.get_relevant_documents(user_input)
         
+        # Format the context from retrieved documents
+        if docs:
+            context = "\n\n".join([f"Document: {doc.metadata.get('source', 'Unknown')}\nContent: {doc.page_content}" for doc in docs])
+            print(f"✅ Retrieved {len(docs)} relevant documents for RAG")
+        else:
+            context = "No relevant documents found in the knowledge base."
+            print("⚠️ No relevant documents found for query")
+
+        # Format chat history
+        chat_history_text = ""
+        if chat_history:
+            for msg in chat_history[-5:]:  # Last 5 messages for context
+                role = msg.get('role', 'unknown')
+                content = msg.get('content', '')
+                chat_history_text += f"{role}: {content}\n"
+
+        # Generate prompt with RAG context and chat history
+        prompt_template = PromptTemplate(
+            input_variables=["context", "question", "chat_history"],
+            template="""You are QueryBot, an AI assistant that helps users find information in their documents.
+
+Context from knowledge base:
+{context}
+
+Chat History:
+{chat_history}
+
+Current Question:
+{question}
+
+Instructions:
+- Answer the question based primarily on the context provided from the knowledge base
+- If the answer cannot be found in the context, clearly state this
+- Be concise but comprehensive
+- Reference specific documents when relevant
+- If chat history is relevant, incorporate it naturally
+
+Answer:"""
+        )
+        
+        prompt = prompt_template.format(
+            context=context, 
+            question=user_input,
+            chat_history=chat_history_text
+        )
+        response = self.llm.predict(prompt)
+
+        # Save to memory (LangChain memory)
+        self.memory.save_context({"input": user_input}, {"output": response})
+        
+        return response
+
+    def get_relevant_sources(self, user_input):
+        """Get relevant sources for a query"""
+        try:
+            retriever = self.vector_store.as_retriever(search_kwargs={"k": RETRIEVER_K})
+            docs = retriever.get_relevant_documents(user_input)
+            
+            sources = []
+            for doc in docs:
+                sources.append({
+                    "title": doc.metadata.get('source', 'Unknown'),
+                    "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                    "similarity": 0.8  # Placeholder - FAISS doesn't return similarity scores directly
+                })
+            
+            return sources
+        except Exception as e:
+            print(f"❌ Error getting sources: {e}")
+            return []

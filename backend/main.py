@@ -25,9 +25,13 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 # Update CORS settings for SSE
 origins = [
     "http://localhost:3000",
+    "http://localhost:3001",      # ← ADD THIS LINE
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",      # ← ADD THIS LINE
     "https://localhost:3000",
-    "https://127.0.0.1:3000"
+    "https://localhost:3001",     # ← ADD THIS LINE
+    "https://127.0.0.1:3000",
+    "https://127.0.0.1:3001"      # ← ADD THIS LINE
 ]
 
 # Add request/response models
@@ -58,26 +62,63 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# SSE Chat endpoint
+# SSE Chat endpoint with RAG integration
 @app.post("/api/chat/stream")
 async def stream_chat(request: ChatRequest):
-    """Stream chat responses using Server-Sent Events"""
+    """Stream chat responses using Server-Sent Events with RAG retrieval"""
     
     async def generate_response() -> AsyncGenerator[str, None]:
         try:
             # Send initial status
             yield f"data: {json.dumps({'type': 'status', 'content': 'processing', 'timestamp': datetime.now().isoformat()})}\n\n"
             
-            # Get streaming response from chatbot
-            response_stream = chatbot.get_streaming_response(request.message)
-            
-            async for chunk in response_stream:
-                # Send each chunk
-                yield f"data: {json.dumps({'type': 'stream', 'content': chunk, 'role': 'assistant', 'timestamp': datetime.now().isoformat()})}\n\n"
-                await asyncio.sleep(0.01)  # Small delay to prevent overwhelming
+            # Check if chatbot has native streaming with RAG
+            if hasattr(chatbot, 'get_streaming_response_with_rag'):
+                # Use native streaming with RAG
+                response_stream = chatbot.get_streaming_response_with_rag(request.message)
+                
+                accumulated_content = ""
+                async for chunk in response_stream:
+                    accumulated_content += chunk + " "
+                    yield f"data: {json.dumps({'type': 'stream', 'content': chunk, 'role': 'assistant', 'timestamp': datetime.now().isoformat(), 'accumulated': accumulated_content.strip()})}\n\n"
+                    await asyncio.sleep(0.01)
+                    
+            elif hasattr(chatbot, 'get_streaming_response'):
+                # Use existing streaming but ensure it includes RAG
+                response_stream = chatbot.get_streaming_response(request.message)
+                
+                accumulated_content = ""
+                async for chunk in response_stream:
+                    accumulated_content += chunk + " "
+                    yield f"data: {json.dumps({'type': 'stream', 'content': chunk, 'role': 'assistant', 'timestamp': datetime.now().isoformat(), 'accumulated': accumulated_content.strip()})}\n\n"
+                    await asyncio.sleep(0.01)
+                    
+            else:
+                # Fallback: Use regular RAG response and simulate streaming
+                yield f"data: {json.dumps({'type': 'status', 'content': 'retrieving_documents', 'timestamp': datetime.now().isoformat()})}\n\n"
+                
+                # Get full response with RAG (this includes document retrieval)
+                full_response = chatbot.get_response(request.message)
+                
+                # Stream the response word by word to simulate streaming
+                words = full_response.split()
+                accumulated_content = ""
+                
+                for i, word in enumerate(words):
+                    accumulated_content += word + " "
+                    
+                    # Send chunk
+                    yield f"data: {json.dumps({'type': 'stream', 'content': word, 'role': 'assistant', 'timestamp': datetime.now().isoformat(), 'accumulated': accumulated_content.strip()})}\n\n"
+                    
+                    # Add small delay for streaming effect
+                    await asyncio.sleep(0.05)
+                    
+                    # Yield control occasionally
+                    if i % 10 == 0:
+                        await asyncio.sleep(0.001)
             
             # Send completion signal
-            yield f"data: {json.dumps({'type': 'complete', 'content': '', 'role': 'assistant', 'timestamp': datetime.now().isoformat()})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'content': accumulated_content.strip(), 'role': 'assistant', 'timestamp': datetime.now().isoformat()})}\n\n"
             
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'timestamp': datetime.now().isoformat()})}\n\n"
@@ -107,7 +148,8 @@ async def health_check():
             "components": {
                 "api": "healthy",
                 "chatbot": "initialized",
-                "vectorstore": "connected"
+                "vectorstore": "connected",
+                "rag_enabled": hasattr(chatbot, 'vectorstore') and chatbot.vectorstore is not None
             }
         }
     except Exception as e:
@@ -125,10 +167,11 @@ async def root():
     """Redirect to API documentation"""
     return RedirectResponse(url="/docs")
 
-# Regular chat endpoint (non-streaming)
+# Regular chat endpoint (non-streaming) - This already has RAG
 @app.post("/api/chat")
 async def handle_chat_message(request: ChatRequest):
     try:
+        # This already uses RAG through chatbot.get_response()
         response = chatbot.get_response(request.message)
         return ChatResponse(
             content=response,
