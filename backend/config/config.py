@@ -5,7 +5,7 @@ from pathlib import Path
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 MIXTRAL_MODEL = "mistralai/mixtral-8x7b-instruct-v0.1"
 RETRIEVER_K = 4
-TEMPERATURE = 0.3
+TEMPERATURE = 0
 MAX_TOKENS = 1024
 
 # API configuration

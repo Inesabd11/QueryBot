@@ -1,0 +1,141 @@
+##  **Types de requêtes possibles selon chaque fichier (couverture RAG)**
+
+---
+
+### 📧 `emails.txt`
+
+| Type de requêtes (langage naturel)                    |
+| ----------------------------------------------------- |
+| "Y a-t-il des demandes d’installation en cours ?"     |
+| "Quels clients ont relancé leur demande ?"            |
+| "Quels emails mentionnent une urgence ?"              |
+| "Quelle est la réponse donnée à l'alerte du site X ?" |
+| "Quand a été programmée l'installation à Hammamet ?"  |
+
+---
+
+### 📛 `camera_alerts.txt` + `donnees_stockage.csv`
+
+| Type de requêtes                                             |
+| ------------------------------------------------------------ |
+| "Quels sites ont eu des caméras hors ligne ?"                |
+| "Quelle est l’alerte la plus récente sur le site de Tunis ?" |
+| "Combien de fois la caméra 17 a-t-elle généré une erreur ?"  |
+| "Quels sites ont dépassé leur seuil de stockage ?"           |
+| "Quelle caméra a généré une erreur critique cette semaine ?" |
+
+---
+
+### 📋 `interventions.csv`
+
+| Type de requêtes                                          |
+| --------------------------------------------------------- |
+| "Liste des interventions effectuées en mai"               |
+| "Quel technicien est intervenu à Bizerte ?"               |
+| "Combien d’interventions ont été classées 'corrective' ?" |
+| "Quelle a été la durée moyenne des maintenances ?"        |
+
+---
+
+### 📄 `cameras_surveillance.yaml` + `camera_dataset.csv`
+
+| Type de requêtes                                       |
+| ------------------------------------------------------ |
+| "Quelle caméra supporte ONVIF et la vision nocturne ?" |
+| "Liste des caméras avec résolution 4K"                 |
+| "Quelle caméra a l’angle de vue le plus large ?"       |
+| "Quel modèle est compatible avec RTSP et CE ?"         |
+| "Donne-moi les specs de la caméra thermique X-200"     |
+
+---
+
+### ❓ `faq_cameras_surveillance.md`
+
+| Type de requêtes                                      |
+| ----------------------------------------------------- |
+| "Comment connecter une caméra IP au réseau ?"         |
+| "C’est quoi le protocole ONVIF ?"                     |
+| "Quelle est la portée des caméras extérieures ?"      |
+| "Est-ce que les caméras fonctionnent sans internet ?" |
+
+---
+
+### ⚠️ `evenements_ia.json`
+
+| Type de requêtes                                          |
+| --------------------------------------------------------- |
+| "Quels événements IA ont été détectés cette semaine ?"    |
+| "Combien de fois une intrusion a été identifiée à Sfax ?" |
+| "Liste des événements avec confiance > 0.9"               |
+| "Quels types d’objets ont été détectés dans le dépôt ?"   |
+
+---
+
+### 🧾 `factures_10.xlsx`
+
+| Type de requêtes                               |
+| ---------------------------------------------- |
+| "Liste des factures impayées"                  |
+| "Quel est le montant total facturé en avril ?" |
+| "Factures du client Alpha"                     |
+| "Combien de factures sont encore en attente ?" |
+
+---
+
+### 📝 `documentation_technique.txt` + `procedure_connexion.docx` + `guide_installation.pdf`
+
+| Type de requêtes                                          |
+| --------------------------------------------------------- |
+| "Comment configurer le port RTSP ?"                       |
+| "Quelle est la procédure pour réinitialiser une caméra ?" |
+| "Quelles sont les étapes d’installation ?"                |
+| "Quels sont les prérequis avant installation ?"           |
+
+---
+
+### 🎫 `tickets_support.json`
+
+| Type de requêtes                                                |
+| --------------------------------------------------------------- |
+| "Quels tickets sont encore ouverts ?"                           |
+| "Quelles pannes ont été signalées à la clinique Vita ?"         |
+| "Quelle a été la réponse du technicien sur le ticket TCK-004 ?" |
+| "Combien de tickets concernent des fausses alertes ?"           |
+
+---
+
+### 📷 `Capture_alertes.jpg` + `Door station schema.jpg`
+
+> (⚠️ via OCR ou description associée)
+
+| Type de requêtes                                               |
+| -------------------------------------------------------------- |
+| "Quel schéma décrit la configuration de la station de porte ?" |
+| "Donne le plan de connexion entre caméra et NVR"               |
+| "Quels éléments sont visibles dans la capture d’alerte ?"      |
+
+---
+
+### 📄 `CCTV in Modern Security.txt` + `CCTV-policy-and-guidelines.docx`
+
+| Type de requêtes                                       |
+| ------------------------------------------------------ |
+| "Quelle est la politique de rétention des vidéos ?"    |
+| "Quels sont les objectifs d’un système CCTV moderne ?" |
+| "Quelles sont les recommandations de sécurité ?"       |
+
+---
+
+##  Résumé global des types de requêtes couverts
+
+| Catégorie               | Exemples de requêtes                      |
+| ----------------------- | ----------------------------------------- |
+| 📦 Produits             | Specs, compatibilité, types de caméras    |
+| 🔧 Technique            | Procédures, configurations, manuels       |
+| 📧 Opérationnel / Email | Installations, urgences, relances         |
+| 📊 Maintenance          | Interventions, techniciens, historique    |
+| ⚠️ Alertes / IA         | Erreurs système, détections IA            |
+| 🧾 Financier            | Factures, montants, statuts               |
+| 🎫 Support client       | Pannes, réponses, statuts de tickets      |
+| ❓ FAQ / général         | Protocole, portées, règles de base        |
+| 🖼️ Schémas / images    | Connexions réseau, captures, architecture |

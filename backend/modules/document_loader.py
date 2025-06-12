@@ -320,10 +320,10 @@ class STLLoader(DocumentLoader):
             
             # Create a structured text representation
             text = f"""STL File Analysis:
-Number of vertices: {vertices}
-Volume: {volume:.2f} cubic units
-Center of gravity: [{', '.join(f'{x:.2f}' for x in cog)}]
-"""
+                    Number of vertices: {vertices}
+                    Volume: {volume:.2f} cubic units
+                    Center of gravity: [{', '.join(f'{x:.2f}' for x in cog)}]
+                    """
             
             logger.info(f"✅ STL chargé: {file_path}")
             return [Document(

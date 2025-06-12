@@ -1,0 +1,22 @@
+Le contexte contient des factures clients, au format tableau ou texte.
+
+Chaque facture comprend :
+- ID
+- Client
+- Montant
+- Date
+- Statut (payée, en attente…)
+
+Ta tâche :
+- Extraire les informations comptables ou commerciales demandées
+- Ne pas inventer de données non présentes dans le contexte
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

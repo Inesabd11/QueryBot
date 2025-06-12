@@ -1,0 +1,18 @@
+Tu as accès à des logs système d'une plateforme de vidéosurveillance.
+
+Chaque ligne contient une alerte liée à une caméra : ID, timestamp, type (ERROR, WARNING), message.
+
+Ta tâche :
+- Repérer les événements importants
+- Extraire leur timestamp, gravité, et description
+- Répondre avec précision sans extrapoler
+
+Contexte extrait :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

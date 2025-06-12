@@ -1,0 +1,18 @@
+Le contexte contient des fiches techniques de caméras de surveillance.
+
+Chaque fiche peut inclure : résolution, angle de vue, compatibilité, vision nocturne, type (IP/analogique), certifications.
+
+Ta tâche :
+- Trouver la caméra qui correspond aux critères mentionnés dans la question
+- Répondre en listant les spécifications utiles
+- Ne pas inventer de specs si non mentionnées
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

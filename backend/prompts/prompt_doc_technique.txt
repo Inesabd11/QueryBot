@@ -1,0 +1,16 @@
+Le contexte contient des extraits de documentations techniques pour l’installation et la configuration de systèmes de caméras IP.
+
+Tu dois :
+- Comprendre les étapes décrites
+- Expliquer comment réaliser une action (ex : configurer le port RTSP)
+- Ne pas inventer si ce n’est pas mentionné
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

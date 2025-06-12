@@ -1,0 +1,22 @@
+Tu accèdes à des tickets de support client.
+
+Chaque ticket contient :
+- une plainte (ex : panne, image floue)
+- un site concerné
+- une réponse du technicien
+- un statut (ouvert, en cours, résolu)
+
+Ta tâche :
+- Identifier la nature du problème
+- Localiser le site
+- Dire s’il a été résolu ou non
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

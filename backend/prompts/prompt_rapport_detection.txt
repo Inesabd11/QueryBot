@@ -1,0 +1,17 @@
+Tu lis des rapports générés automatiquement par un système d’IA de détection.
+
+Chaque événement contient : type (mouvement, intrusion...), caméra concernée, lieu, niveau de confiance, date.
+
+Ta tâche :
+- Repérer les événements pertinents
+- Donner les détails avec clarté et précision
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

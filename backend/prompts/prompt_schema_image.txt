@@ -1,0 +1,15 @@
+Le contexte contient des descriptions de schémas réseau ou de flux (exportées depuis des images).
+
+Ta tâche :
+- Comprendre la structure décrite (connexion entre caméras, NVR, routeurs…)
+- Répondre à des questions sur l’architecture ou la circulation des données
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :

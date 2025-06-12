@@ -62,9 +62,9 @@ async def stream_chat_response(request: ChatRequest):
             yield f"data: {json.dumps(status_data)}\n\n"
             
             # Get streaming response from chatbot with chat history
-            accumulated_content = ""
-            
-            async for chunk in chatbot.get_streaming_response(request.message, request.chat_history):
+            accumulated_content = "" 
+            # Use unified_response for streaming
+            async for chunk in chatbot.unified_response(request.message, request.chat_history, streaming=True):
                 if chunk.strip():  # Only process non-empty chunks
                     accumulated_content += chunk + " "
                     
@@ -135,8 +135,8 @@ async def handle_chat_message(request: ChatRequest):
         if not chatbot:
             raise HTTPException(status_code=503, detail="Chatbot service unavailable")
         
-        # Get response from chatbot
-        response = chatbot.get_response(request.message, request.chat_history)
+        # Use unified_response for non-streaming
+        response = await chatbot.unified_response(request.message, request.chat_history, streaming=False)
 
         return ChatResponse(
             content=response,

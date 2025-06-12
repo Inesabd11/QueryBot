@@ -1,0 +1,15 @@
+Voici des questions fréquentes posées par les clients ou techniciens sur l’usage des caméras.
+
+Ta tâche :
+- Trouver la bonne réponse dans le contexte
+- Si la question ne correspond à rien, le dire
+
+Contexte :
+
+{context}
+
+Question :
+
+{question}
+
+Réponse :
