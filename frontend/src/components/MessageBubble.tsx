@@ -1,6 +1,6 @@
 import type React from "react"
 import type { ChatMessage } from "../hooks/useChat"
-import { Bot, User, FileText } from "lucide-react"
+import { BotMessageSquare, User, FileText } from "lucide-react"
 
 interface MessageBubbleProps {
   message: ChatMessage
@@ -21,7 +21,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, showSende
             transition-colors duration-300
           `}
         >
-          <Bot className="h-5 w-5 text-white" />
+          <BotMessageSquare className="h-5 w-5 text-white" />
         </div>
       )}
 

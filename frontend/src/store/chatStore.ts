@@ -1,23 +1,7 @@
 // frontend/src/store/chatStore.ts
 import { create } from 'zustand';
 import axios from 'axios';
-
-export interface Source {
-  title: string;
-  content: string;
-  similarity: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'bot';
-  content: string;
-  timestamp: string;
-  type?: 'text' | 'file';
-  metadata?: {
-    sources?: Source[];
-  };
-}
+import type { ChatMessage } from '@/hooks/useChat';
 
 interface RAGResponse {
   content: string;
@@ -28,20 +12,6 @@ interface RAGResponse {
   }[];
 }
 
-interface Message {
-  role: 'user' | 'assistant' | 'bot';
-  content: string;
-  timestamp: string;
-  metadata?: {
-    sources?: Array<{
-      title: string;
-      content: string;
-      similarity: number; // check if this is required 
-    }>;
-    confidence?: number; // check if this is required
-  };
-}
-
 interface QueuedMessage {
   id: string;
   content: string;
@@ -49,7 +19,7 @@ interface QueuedMessage {
 }
 
 interface ChatState {
-  messages: Message[];
+  messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
   socket: WebSocket | null;
@@ -63,8 +33,8 @@ interface ChatState {
   
   // Add missing function definitions to the interface
   clearError: () => void;
-  setMessages: (messages: Message[]) => void;
-  addMessage: (message: Message) => void;
+  setMessages: (messages: ChatMessage[]) => void;
+  addMessage: (message: ChatMessage) => void;
   sendMessage: (content: string) => Promise<void>;
   uploadFile: (file: File) => Promise<void>;
   clearHistory: () => Promise<void>;
@@ -96,17 +66,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearError: () => set({ hasError: false, errorMessage: '', error: null }),
 
-  setMessages: (messages: Message[]) => set({ messages }),
+  setMessages: (messages: ChatMessage[]) => set({ messages }),
 
-  addMessage: (message: Message) => set((state) => ({
+  addMessage: (message: ChatMessage) => set((state) => ({
     messages: [...state.messages, message]
   })),
 
   sendMessage: async (content: string) => {
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      sender: 'user',
       role: 'user',
       content: content,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      type: 'text'
     };
 
     set((state) => ({
@@ -114,24 +87,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isLoading: true
     }));
 
-  const { socket } = get();
+    const { socket } = get();
     if (socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(userMessage));
       return;
     }
 
-  try {
+    try {
       const response = await axios.post<RAGResponse>(`${API_URL}/api/chat`, {
         message: content,
         use_rag: true
       });
 
-      const botMessage: Message = {
-      role: 'assistant',
-      content: response.data.content,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        sources: response.data.sources
+      const botMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        sender: 'bot',
+        role: 'assistant',
+        content: response.data.content,
+        timestamp: new Date().toISOString(),
+        type: 'text',
+        metadata: {
+          sources: response.data.sources
         }
       };
       set((state) => ({
@@ -167,14 +143,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       });
 
-      const systemMessage: Message = {
-      role: 'bot',
-      content: `File '${file.name}' has been processed and added to the knowledge base. You can now ask questions about it.`,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        sources: response.data.sources || []  // If backend returns processed chunks info
-      }
-    };
+      const systemMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        sender: 'bot',
+        role: 'assistant', // changed from 'bot' to 'assistant'
+        content: `File '${file.name}' has been processed and added to the knowledge base. You can now ask questions about it.`,
+        timestamp: new Date().toISOString(),
+        type: 'file',
+        metadata: {
+          sources: response.data.sources || []  // If backend returns processed chunks info
+        }
+      };
 
       set((state) => ({
         messages: [...state.messages, systemMessage],
@@ -220,7 +199,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     socket.onmessage = (event) => {
       try {
-        const message: Message = JSON.parse(event.data);
+        const message: ChatMessage = JSON.parse(event.data);
         set((state) => ({
           messages: [...state.messages, message],
           isLoading: false

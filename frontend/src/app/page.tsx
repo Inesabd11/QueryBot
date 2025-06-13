@@ -5,8 +5,7 @@ import { ThemeProvider, useTheme } from "@/components/chat/theme/ThemeContext"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { ChatHistoryContainer } from "@/components/ChatHistory"
 import { MessageBubble } from "@/components/MessageBubble"
-import { type ChatHistory, useChat } from "@/hooks/useChat"
-
+import { type ChatHistory, useChat } from "@/hooks/useChat" 
 import { useFileUpload } from "@/hooks/useFileUploads"
 import { BotMessageSquare, MessageCircleMore } from "lucide-react"
 import "./globals.css"
@@ -25,6 +24,9 @@ import {
   Bot,
   ArrowDown,
 } from "lucide-react"
+import en from "@/lang/en"
+import fr from "@/lang/fr"
+import { LanguageProvider, useLanguage } from "@/hooks/useLanguage"
 
 function ChatBot() {
   const { theme, toggleTheme, getThemeClasses } = useTheme()
@@ -167,21 +169,15 @@ function ChatBot() {
 
       return () => clearTimeout(timer)
     }
-  }, [uploadError, clearUploadError])
-
-  // Connection status indicator
-  const ConnectionStatus = () => (
-    <div className={`flex items-center gap-2 text-xs ${isConnected ? "text-green-600" : "text-red-600"}`}>
-      <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
-      {isConnected ? "Connected" : "Disconnected"}
-    </div>
-  )
-
+  }, [uploadError, clearUploadError]) 
   // Auto-resize textarea
   const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
     element.style.height = "auto"
     element.style.height = `${Math.min(element.scrollHeight, 120)}px`
   }
+
+  const { language, setLanguage } = useLanguage()
+  const t = language === "fr" ? fr : en
 
   // Render
   return (
@@ -240,19 +236,42 @@ function ChatBot() {
               </div>
               <div className="flex flex-col">
                 <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500">
-                  QueryBot
-                </h1>
-                <ConnectionStatus />
+                  {t.appName}
+                </h1> 
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Language Switcher */}
+            <div className="relative">
+              <label htmlFor="lang-switch" className="sr-only">{t.language}</label>
+              <div className="flex gap-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button
+                  id="lang-switch-en"
+                  aria-label={t.english}
+                  className={`px-2 py-1 flex items-center gap-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${language === "en" ? "bg-blue-500 text-white" : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"}`}
+                  onClick={() => setLanguage("en")}
+                  tabIndex={0}
+                >
+                  <span role="img" aria-label="English">🇬🇧</span> EN
+                </button>
+                <button
+                  id="lang-switch-fr"
+                  aria-label={t.french}
+                  className={`px-2 py-1 flex items-center gap-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 ${language === "fr" ? "bg-blue-500 text-white" : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"}`}
+                  onClick={() => setLanguage("fr")}
+                  tabIndex={0}
+                >
+                  <span role="img" aria-label="Français">🇫🇷</span> FR
+                </button>
+              </div>
+            </div>
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-              aria-label="Toggle theme"
+              aria-label={t.theme}
             >
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
@@ -265,7 +284,7 @@ function ChatBot() {
                   ? "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
                   : "hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
-              aria-label="Search messages"
+              aria-label={t.search}
             >
               <Search size={18} />
             </button>
@@ -273,12 +292,12 @@ function ChatBot() {
             {/* Clear History */}
             <button
               onClick={() => {
-                if (confirm("Are you sure you want to clear the current conversation?")) {
+                if (confirm(t.clearConversationConfirm)) {
                   clearChat()
                 }
               }}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-              aria-label="Clear conversation"
+              aria-label={t.clearConversation}
             >
               <Trash2 size={18} />
             </button>
@@ -303,7 +322,7 @@ function ChatBot() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search in conversation..."
+                placeholder={t.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`
@@ -321,6 +340,7 @@ function ChatBot() {
                 <button
                   onClick={() => setSearchQuery("")}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  aria-label={t.search}
                 >
                   <X size={16} />
                 </button>
@@ -349,6 +369,7 @@ function ChatBot() {
                   clearUploadError()
                 }}
                 className="text-red-700 hover:text-red-900 focus:outline-none"
+                aria-label="Close error"
               >
                 <X size={16} />
               </button>
@@ -370,9 +391,9 @@ function ChatBot() {
               <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
                 <MessageCircleMore size={48} className="text-gray-400 dark:text-gray-300" />
               </div>
-              <h2 className="text-xl font-medium mb-2 text-gray-600 dark:text-gray-500">Start a conversation</h2>
+              <h2 className="text-xl font-medium mb-2 text-gray-600 dark:text-gray-500">{t.startConversation}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm">
-                Ask me anything, upload documents, or get help with your questions!
+                {t.askAnything}
               </p>
             </div>
           ) : (
@@ -499,7 +520,7 @@ function ChatBot() {
                       : "hover:bg-gray-700 text-gray-300"
                 }
               `}
-              aria-label="Upload file"
+              aria-label={t.uploadFile}
             >
               <UploadCloud size={20} />
             </button>
@@ -514,7 +535,7 @@ function ChatBot() {
                 }}
                 onKeyDown={handleKeyPress}
                 disabled={isLoading || isUploading}
-                placeholder={isConnected ? "Type your message..." : "Connecting to server..."}
+                placeholder={isConnected ? t.typeMessage : t.connecting}
                 rows={1}
                 className={`
                   w-full p-3 rounded-2xl shadow-sm resize-none
@@ -530,6 +551,7 @@ function ChatBot() {
                   minHeight: "46px",
                   maxHeight: "120px",
                 }}
+                aria-label={t.typeMessage}
               />
             </div>
 
@@ -546,12 +568,12 @@ function ChatBot() {
                     : "hover:shadow-lg"
                 }
               `}
-              aria-label="Send message"
+              aria-label={t.send}
             >
               {isLoading || isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={18} />}
             </button>
           </div>
-          <div className="text-xs text-gray-400 mt-2 text-center">Press Enter to send, Shift+Enter for new line</div>
+          <div className="text-xs text-gray-400 mt-2 text-center">{t.pressEnter}</div>
         </div>
       </div>
     </div>
@@ -562,7 +584,9 @@ export default function Page() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <ChatBot />
+        <LanguageProvider>
+          <ChatBot />
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

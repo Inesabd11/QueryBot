@@ -948,3 +948,76 @@ Additional specifications, such as resolution, angle of view, vision night, and 
 
 As for your previous question, I confirmed that the president of the United States is Joe Biden. If you have any more questions on various topics, feel free to ask!",llm_general_fallback
 2025-06-13T12:44:26.993798,describe the document Arch-RAG-soulaimen.PNG,"The document ""Arch-RAG-soulaimen.PNG"" appears to be a diagram or image related to a content management system (CMS) for a website. It shows various components of the system, including web gestion, inscription, confidentiality, and security. There are also sections for search, results, requests, and responses. The image also includes an agent virtuel and an analytique section, which may be related to user support or data analysis. However, without additional context, it is difficult to provide a more detailed description.",rag_prompt_fiche_produit.txt
+2025-06-13T13:21:29.747659,hi,Hello! How can I help you today?,intent
+2025-06-13T13:21:38.627702,bonjour,Hello! How can I help you today?,intent
+2025-06-13T13:32:17.101287,hi,Hello! How can I help you today?,intent
+2025-06-13T14:39:26.439881,Hi,Hello! How can I help you today?,intent
+2025-06-13T14:42:03.338868,Hi,Hello! How can I help you today?,intent
+2025-06-13T14:44:10.622282,qui est le président de la france?,"The requested context does not contain information about cameras that match certain criteria. However, I can provide a general example based on the provided documents.
+
+Example question: Which IP camera is compatible with the ONVIF protocol and supports PoE?
+
+Example answer: Based on the provided documents, I cannot give you a specific camera model. However, I can tell you what to look for. You should search for a camera that is:
+
+- IP type (as mentioned in the FAQ)
+- Compatible with the ONVIF protocol (as explained in the FAQ)
+- PoE (Power over Ethernet) enabled (explained in the FAQ)
+
+So, the answer would be:
+- Type: IP
+- Protocol: ONVIF
+- Power: PoE
+
+Additional specifications, such as resolution, angle of view, vision night, and certifications, would depend on the specific camera model.",rag_prompt_fiche_produit.txt
+2025-06-13T14:44:27.478812,Bonjour,Bonjour! Comment puis-je vous aider aujourd'hui?,intent
+2025-06-13T14:45:20.053173,quelle caméra a un Erreur de flux vidéo?,"Based on the provided documents, there is no information about a specific camera having a video stream error. The documents contain installation and configuration guides, as well as FAQs about cameras and surveillance systems, but they do not mention any camera with a video stream error.",rag_prompt_fiche_produit.txt
+2025-06-13T14:45:34.502953,Bonjour ,Hello! How can I help you today?,intent
+2025-06-13T14:45:49.022509,Bonjour,Hello! How can I help you today?,intent
+2025-06-13T14:46:09.980549,Quels emails mentionnent une urgence ?,"Les emails qui mentionnent une urgence sont les suivants :
+
+- Email 1 : Demande d'installation urgente
+  Objet : Demande d'installation urgente – Site Hammamet
+
+- Email 4 : Réclamation technique (support)
+  Objet : Caméra défaillante – Intervention demandée
+
+Dans l'email 1, la direction technique demande une installation avant vendredi. Dans l'email 4, le responsable sécurité demande l'envoi d'un technicien dès que possible pour une caméra défaillante.",rag_prompt_fiche_produit.txt
+2025-06-13T14:46:33.871858,Quand a été programmée l'installation à Hammamet ?,"Je ne dispose pas de l'information sur la date de programmation de l'installation à Hammamet. Le premier email fourni concerne une demande d'installation urgente pour le site de Hammamet, mais il n'y a pas de confirmation de la date de programmation.",rag_prompt_fiche_produit.txt
+2025-06-13T14:47:26.161571,donner la date de la facture 235 du client Martin,La date de la facture 235 pour le client Martin est le 2023-11-02.,rag_prompt_ticket_support.txt
+2025-06-13T14:48:32.104514,donner les caractéristiques de caméra model Canon PowerShot 350,"Based on the provided document, here are the specifications for the Canon PowerShot 350 camera:
+
+- Resolution: 640.0
+- Horizontal Resolution: 0.0
+- Vertical Resolution: 0.0
+- Minimum Illumination: 42.0
+- Maximum Illumination: 42.0
+- Angle of View (Horizontal): 70.0
+- Angle of View (Vertical): 3.0
+- Angle of View (Diagonal): 2.0
+- Shutter Speed: 320.0
+- Gain: 93.0
+- Sensor Size (Horizontal): 149.0
+
+Please note that the resolution is given in an unknown unit, and the illumination is provided in lux. The angle of view is given in degrees, and the shutter speed is in a non-standard format. The gain and sensor size are in millimeters.",rag_prompt_fiche_produit.txt
+2025-06-13T14:49:30.548796,"donner le id_ticket de client : ""Société Alpha""","Le ticket de la ""Société Alpha"" a pour id ""TCK-001"".",rag_prompt_ticket_support.txt
+2025-06-13T14:50:00.239452,donner le log camera alerts pour cam_09,"Based on the provided emails, there is no log for camera alerts specifically for cam_09. However, I can provide you with an example of what that might look like:
+
+---
+
+--- Email : Camera Alert ---
+Objet : [Alerte] Caméra 09 hors ligne depuis 5 min
+
+Le système a détecté une perte de connexion de la caméra ID 09 (site Sousse – secteur ouest) à 14:26:34.
+
+Veuillez vérifier le lien réseau.
+
+---
+
+This is an example of how an alert email for cam_09 being offline for 5 minutes would look like. The actual email might not exist in the provided context.",rag_prompt_fiche_produit.txt
+2025-06-13T16:53:19.154981,hi,Hello! How can I help you today?,intent
+2025-06-13T17:07:30.273083,Hi,Hello! How can I help you today?,intent
+2025-06-13T17:07:37.026247,Bonjour,Bonjour! Comment puis-je vous aider aujourd'hui?,intent
+2025-06-13T17:13:08.045187,Hi,Hello! How can I help you today?,intent
+2025-06-13T17:13:35.194129,tell me who is the president of America,"I'm sorry, the provided context does not include information about the president of America.",rag_prompt_fiche_produit.txt
+2025-06-13T17:14:16.577275,"out of the context, based on you knowledge base tell who is the president of America","As of my last training data in October 2021, the President of the United States is Joe Biden. He assumed office on January 20, 2021. However, please verify from a reliable source as this information might have changed.",llm_general_fallback
+2025-06-13T17:30:47.917146,Bonjour,Bonjour! Comment puis-je vous aider aujourd'hui?,intent
