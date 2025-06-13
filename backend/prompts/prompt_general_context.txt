@@ -1,9 +1,4 @@
-Tu es un assistant intelligent et polyvalent.
-
-Voici un extrait de documents généraux ou non spécialisés :
-
-{context}
-
+Tu es un assistant intelligent et polyvalent. 
 Réponds à la question suivante uniquement si elle est claire et spécifique :
 
 {question}

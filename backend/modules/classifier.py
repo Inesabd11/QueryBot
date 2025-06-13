@@ -1,28 +1,33 @@
 import re
 
-# Mots-clés pour des intents simples (salutation, traduction, etc.)
+# Simple intent keywords for clear conversational patterns
 INTENT_KEYWORDS = [
-    r"\bbonjour\b", r"\bsalut\b", r"\bhello\b", r"\bhi\b", r"\btradui", r"\btranslate"
-]
-# Mots-clés pour détecter une question sur les données internes (RAG)
-DATA_KEYWORDS = [
-    r"facture", r"rapport", r"capteur", r"donnée", r"schéma", r"image", r"document", r"pdf", r"tableau"
+    r"\bbonjour\b", r"\bsalut\b", r"\bhello\b", r"\bhi\b", r"\bbye\b", r"\bau revoir\b",
+    r"\bmerci\b", r"\bthank you\b", r"\bthanks\b"
 ]
 
 def classify(user_input: str) -> str:
     """
-    Classe la requête utilisateur en 'intent', 'data_query', ou 'general_query'.
-    Les intents (salutation, traduction) sont prioritaires.
+    Smart classifier that determines query type:
+    - 'intent': Clear conversational patterns (greetings, thanks)
+    - 'data_query': Default for most queries (let RAG decide if it has relevant info)
+    - 'general_query': Only used as fallback when RAG finds no relevant context
+    
+    The key insight: Let RAG try first, then fallback to general LLM if no relevant docs found.
     """
     text = user_input.lower().strip()
-    # Priorité : intent > data_query > general_query
+    
+    # Only classify as intent for very clear conversational patterns
     if any(re.search(kw, text) for kw in INTENT_KEYWORDS):
-        return "intent"
-    if any(re.search(kw, text) for kw in DATA_KEYWORDS):
-        return "data_query"
-    return "general_query"
+        # But exclude questions that might also be greetings
+        if not any(word in text for word in ["?", "what", "how", "why", "when", "where", "qui", "que", "comment", "pourquoi", "quand", "où"]):
+            return "intent"
+    
+    # Default to data_query - let RAG attempt to answer first
+    # RAG will fallback to general LLM if no relevant documents found
+    return "data_query"
 
-# Exemple d'utilisation :
-# print(classify("Montre-moi les factures de mars"))  # data_query
-# print(classify("Bonjour !"))  # intent
-# print(classify("C'est quoi un réseau de neurones ?"))  # general_query
+# The classifier is now much simpler and smarter:
+# - Only catches clear intents (simple greetings/thanks without questions)
+# - Everything else goes to data_query first
+# - RAG system will handle the fallback to general LLM internally
