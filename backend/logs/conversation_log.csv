@@ -1021,3 +1021,218 @@ This is an example of how an alert email for cam_09 being offline for 5 minutes 
 2025-06-13T17:13:35.194129,tell me who is the president of America,"I'm sorry, the provided context does not include information about the president of America.",rag_prompt_fiche_produit.txt
 2025-06-13T17:14:16.577275,"out of the context, based on you knowledge base tell who is the president of America","As of my last training data in October 2021, the President of the United States is Joe Biden. He assumed office on January 20, 2021. However, please verify from a reliable source as this information might have changed.",llm_general_fallback
 2025-06-13T17:30:47.917146,Bonjour,Bonjour! Comment puis-je vous aider aujourd'hui?,intent
+2025-06-14T01:11:50.677403,hi,Hello! How can I help you today?,intent
+2025-06-14T01:15:15.843743,Hi,Hello! How can I help you today?,intent
+2025-06-14T01:15:32.222923,how are you?,"I'm an artificial intelligence, so I don't have feelings, but I'm here and ready to assist you. How can I help you today?",llm_general_fallback
+2025-06-14T01:16:42.196044,Montre-moi les tendances de production du dernier mois,"Based on the provided context, there are no camera specifications mentioned directly. However, I can provide you with the general knowledge about cameras that might be helpful for you to understand the context better.
+
+1. Camera types: There are two main types of cameras - IP and analog. IP cameras transmit data over the internet, while analog cameras use wires to transmit the video feed.
+2. Resolution: Camera resolution is an essential factor that determines the quality of the video feed. Common resolutions include 720p, 1080p, and 4K.
+3. Angle of view: The angle of view determines how wide or narrow the camera's field of vision is. A wider angle of view can cover more area but may result in a lower quality image.
+4. Compatibility: Cameras should be compatible with the NVR (Network Video Recorder) or VMS (Video Management Software) that you are using.
+5. Vision nocturne: Cameras with night vision can capture clear images even in low light conditions.
+6. Certifications: Cameras may have certifications such as UL, CE, and FCC, which indicate that they meet specific safety and performance standards.
+
+If you have a specific camera model or brand in mind, I can look up the specifications for you.",rag_prompt_fiche_produit.txt
+2025-06-14T01:33:36.366364,hi,Hello! How can I help you today?,intent
+2025-06-14T01:56:47.854196,hi,Hello! How can I help you today?,intent
+2025-06-14T01:56:55.521155,ok,"Hello! It seems like you're ready to ask a question or start a conversation. I'm here to help, so please feel free to ask me anything. For instance, I can provide information on a wide range of topics, help you manage your schedule, set reminders, and much more. What can I assist you with today?",llm_general_fallback
+2025-06-14T02:03:15.152098,hi,Hello! How can I help you today?,intent
+2025-06-14T02:03:18.817945,hi,Hello! How can I help you today?,intent
+2025-06-14T02:03:25.432359,ok,"Hello! I'm here to help. Is there something specific you'd like to know or discuss? I can provide information on a wide range of topics, from general knowledge and trivia to explanations of complex concepts. Please feel free to ask me anything!",llm_general_fallback
+2025-06-14T02:23:09.803310,Hi,Hello! How can I help you today?,intent
+2025-06-14T02:23:18.737396,ok,"I'm glad to see you're ready to continue our conversation. Could you please provide more details about what you're looking for? I'm here to help with general knowledge questions, provide explanations, offer suggestions, and more. Let me know how I can best assist you!",llm_general_fallback
+2025-06-14T02:23:32.314062,merci,You're welcome! Feel free to ask if you have more questions.,intent
+2025-06-14T02:26:09.149719,bonjour,Hello! How can I help you today?,intent
+2025-06-14T02:26:18.431006,ok,Hello! I'm here to provide information and assistance. Is there something specific you'd like to know or discuss? I'm ready when you are!,llm_general_fallback
+2025-06-14T02:26:45.575545,Describe ,"Of course, I'd be happy to describe something for you! However, I need a bit more information. Could you please tell me what specific topic or item you'd like me to describe? It could be anything from a concept, an object, a place, or an experience. The more details you provide, the better I can assist you.",llm_general_fallback
+2025-06-14T02:27:06.530489,describe Arch-RAG-soulaimen.PNG,"The file ""Arch-RAG-soulaimen.PNG"" is an image, specifically a screenshot, that shows a part of a webpage or a software interface. The top section of the image displays a toolbar with several icons, including a house, a chat bubble, a bell, a gear, and a plus sign. It appears to be an internal system or application, as indicated by the ""Arch-RAG"" text on the left side of the toolbar.
+
+The main section of the image displays a table with several columns and rows of data. The columns are labeled ""Name,"" ""Type,"" ""Status,"" ""Last Updated,"" and ""Actions."" There are multiple entries in the table, with the first one highlighted in blue. The first entry shows the name ""soulaimen,"" the type ""User,"" the status ""Active,"" the last update date ""2022-02-09,"" and several icons in the ""Actions"" column.
+
+Overall, the image appears to be a user management or administration interface for the ""Arch-RAG"" system.",llm_general_fallback
+2025-06-14T02:28:16.948108,Montre-moi les tendances de production du dernier mois,"Based on the provided context, there are no specifications for cameras. However, I can provide you with the information about cameras from the context.
+
+Email 1 asks for the installation of cameras at the Hammamet site before Friday.
+
+Email 3 is a request for a quote for 5 thermal cameras with night vision for the Sfax warehouse.
+
+Email 4 is a request for a technician to fix a malfunctioning external camera (cam_03) at the Bizerte site.
+
+From these emails, we can infer that you might need cameras with thermal imaging and night vision capabilities. However, for specific camera specifications such as resolution, angle of view, compatibility, and certifications, there is no information provided in the context.",rag_prompt_fiche_produit.txt
+2025-06-14T02:41:44.915274,Hi,Hello! How can I help you today?,intent
+2025-06-17T00:01:07.064232,bien,"To find a camera that matches the given criteria, I will need specific details about what you are looking for. However, I can provide you with the specifications of the cameras listed in the `camera_dataset.csv` file.
+
+1. Agfa ePhoto 1280:
+   - Year: 1997
+   - Resolution: 1024.0 x 640.0
+   - Compatibility: Not specified
+   - Vision nocturne: Not specified
+   - Type (IP/analogique): Not specified
+   - Certifications: Not specified
+
+2. Agfa ePhoto 1680:
+   - Year: 1998
+   - Resolution: 1280.0 x 640.0
+   - Compatibility: Not specified
+   - Vision nocturne: Not specified
+   - Type (IP/analogique): Not specified
+   - Certifications: Not specified
+
+3. Agfa ePhoto CL18:
+   - Year: 2000
+   - Resolution: 640.0 x 0.0
+   - Compatibility: Not specified
+   - Vision nocturne: Not specified
+   - Type (IP/analogique): Not specified
+   - Certifications: Not specified
+
+4. Agfa ePhoto CL30:
+   - Year: 1999
+   - Resolution: 1152.0 x 640.0
+   - Compatibility: Not specified
+   - Vision nocturne: Not specified
+   - Type (IP/analogique): Not specified
+   - Certifications: Not specified
+
+5. Agfa ePhoto CL30 Clik!:
+   - Year: 1999
+   - Resolution: 1152.0 x 640.0
+   - Compatibility: Not specified
+   - Vision nocturne: Not specified
+   - Type (IP/analogique): Not specified
+   - Certifications: Not specified
+
+Please provide more specific criteria if you would like me to find a camera that matches them.",rag_prompt_fiche_produit.txt
+2025-06-17T00:02:02.421412,hi,Hello! How can I help you today?,intent
+2025-06-17T00:12:43.601030,Résume les incidents de la semaine dernière,"Voici les incidents liés aux caméras de surveillance de la semaine dernière :
+
+1. Dans l'email 2, la caméra ID 17 située au site Tunis – entrée nord a perdu sa connexion depuis 10 minutes. Il est demandé de vérifier le lien réseau.
+
+2. Dans l'email 4, la caméra extérieure cam_03 du site de Bizerte affiche une image noire. Un technicien est demandé pour une intervention.
+
+3. Dans l'email 5, le client Z réclame toujours le rapport PDF de l'intervention du 22 mai à Nabeul.
+
+Aucune information sur la marque, le type ou les spécifications techniques des caméras n'a été fournie dans ces emails.
+
+Cependant, dans la documentation_technique.txt, il est mentionné que la documentation se réfère à une caméra IP. Les spécifications suivantes peuvent être utiles :
+
+- La caméra IP nécessite un ordinateur ou un smartphone connecté au même réseau local.
+- Elle fonctionne avec un câble Ethernet ou une connexion WiFi.
+- L'adresse IP par défaut ou l'outil de découverte du fabricant est requis pour l'accès.
+- Les identifiants d'accès par défaut sont souvent admin/admin.
+- La configuration de l'adresse IP statique ou dynamique (DHCP) est nécessaire.
+- Le port de communication est souvent 80 pour HTTP ou 554 pour RTSP.
+- Le protocole ONVIF doit être activé pour l'interopérabilité avec les NVR et autres systèmes.
+
+Dans le document Capt.PNG, il est mentionné l'utilisation de caméras Hikvision, mais aucune spécification technique n'est fournie.",rag_prompt_fiche_produit.txt
+2025-06-19T10:24:21.048285,hi,Hello! How can I help you today?,intent
+2025-06-19T11:00:06.479078,hi,Hello! How can I help you today?,intent
+2025-06-19T11:11:32.968681,hello,Hello! How can I help you today?,intent
+2025-06-19T11:38:50.772891,hi,Hello! How can I help you today?,intent
+2025-06-19T12:22:30.889061,hi,Hello! How can I help you today?,intent
+2025-06-19T12:39:20.864893,hi,Hello! How can I help you today?,intent
+2025-06-19T12:39:34.616144,uv,"It seems like there might have been a typo in your message. If you're asking about the term ""UV,"" it generally refers to ultraviolet radiation. This is a type of electromagnetic radiation that has a shorter wavelength than visible light. It's often associated with the sun and plays a role in tanning and sunburn. However, your question seems a bit unclear. Could you please provide more context or clarify what you're asking? I'm here to help!",llm_general_fallback
+2025-06-19T13:20:44.212142,hi,Hello! How can I help you today?,intent
+2025-06-19T13:20:51.428604,biuvfizBGLEZGN,"I'm sorry for any confusion, but it seems like the message ""biuvfizBGLEZGN"" doesn't form a coherent question or statement. Could you please provide more details or clarify what you'd like to know? I'm here to help with a wide range of topics.",llm_general_fallback
+2025-06-19T13:21:45.910454,oezogn,"Hello! It seems like you've provided a string of letters, ""oezogn"", which doesn't form a coherent question or statement. Could you please provide more context or clarify what you'd like to know? I'm here to help with a wide range of topics. Whether it's general knowledge, explanations, or suggestions, feel free to ask!",llm_general_fallback
+2025-06-19T13:21:54.078622,zvglzegv,"I'm sorry for any confusion, but the string of letters ""zvglzegv"" doesn't form a coherent question or statement. Could you please provide more context or clarify what you'd like to know? I'm here to help with a wide range of topics. Whether it's general knowledge, explanations, or suggestions, feel free to ask!",llm_general_fallback
+2025-06-19T13:24:33.191420,ibobl,"I'm sorry for any confusion, but the string of letters ""ibobl"" doesn't form a coherent question or statement. Could you please provide more context or clarify what you'd like to know? I'm here to help with a wide range of topics. Whether it's general knowledge, explanations, or suggestions, feel free to ask!",llm_general_fallback
+2025-06-19T13:26:11.657840,vibiiiiiiiiiiiiiiiiiiiiiiiiiiiiozeGIOZËOGIAAAAAAAAAAAAAAAAAAANIBIZPEPOEFIZHIBEGEFFFFFFFFFFFFQSVFZEZIGOIEZZOIBVIZEBSDVZEEGZEGSDVZegez,"I'm sorry for the confusion, but the long string of letters ""vibiiiiiiiiiiiiiiiiiiiiiiiiiiiiozeGIOZËOGIAAAAAAAAAAAAAAAAAAANIBIZPEPOEFIZHIBEGEFFFFFFFFFFFFQSVFZEZIGOIEZZOIBVIZEBSDVZEEGZEGSDVZegez"" doesn't form a coherent question or statement. If this is a specific code or reference, could you please provide more context or clarify what you'd like to know? I'm here to help with a wide range of topics. Whether it's general knowledge, explanations, or suggestions, feel free to ask!",llm_general_fallback
+2025-06-19T13:26:50.258805,"I'm sorry for any confusion, but the string of letters ""ibobl"" doesn't form a coherent question or statement. Could you please provide more context or clarify what you'd like to know? I'm here to help with a wide range of topics. Whether it's general knowledge, explanations, or suggestions, feel free to ask!","It seems like you're just inputting random strings of letters. If you need help with something specific, such as explaining a concept, providing information on a particular topic, or giving suggestions, please provide more context or clarify your question. I'm here to help with a wide range of subjects, so feel free to ask anything you'd like to know!",llm_general_fallback
+2025-06-19T15:21:19.365231,Show me the production trends for last month,"Based on the information provided in the document ""VaVLM-paper.pdf"", here are the specifications for a camera that supports multiple tasks using a single Vision-Language Model (VLM):
+
+- Resolution: Not specified in the document
+- Angle of view: Not specified in the document
+- Compatibility: Vision-Language Models (VLMs)
+- Vision night: Not specified in the document
+- Type (IP/analogique): Not specified in the document
+- Certifications: Not specified in the document
+
+The document focuses on using VaVLM, an edge-cloud collaborative video analytics system tailored for VLMs, to enhance the performance of VLM-powered video analytics systems in three key aspects: reducing bandwidth consumption, lowering inference costs, and improving inference accuracy. However, it does not provide specific camera specifications.
+
+For the question about the production trends for the last month, there is no relevant information provided in the document ""interventions.csv"". It contains records of interventions, including their ID, date, site, technician, type, duration, and status, but it does not include production data or information about time periods.",rag_prompt_fiche_produit.txt
+2025-06-19T15:38:09.812783,hi,Hello! How can I help you today?,intent
+2025-06-19T15:39:28.336581,egoegLEGNOEGNOgneb,"I'm sorry for any confusion, but your message seems to be garbled and I'm having difficulty understanding your question. Could you please rephrase or clarify what you'd like to know? I'm here to help with a wide range of topics.",llm_general_fallback
+2025-06-19T16:02:21.959563,hi,Hello! How can I help you today?,intent
+2025-06-19T16:02:28.360406,why,"""Why"" can be a very broad question, as it can be used to seek explanations for a wide range of phenomena or concepts. If you could specify what particular topic or concept you're interested in, I'd be more than happy to provide an explanation! For example, you might be wondering ""why is the sky blue?"" or ""why do we experience different seasons throughout the year?"" or even ""why is water essential for life?"" Please provide more context so I can give you the most accurate and helpful response.",llm_general_fallback
+2025-06-19T16:02:38.958422,ok,"""Ok"" can be used in many ways in conversation, such as to indicate understanding, acceptance, or that you're ready to proceed. If you're using it to confirm that you're ready for me to provide a response or that you're ready for the next step in our conversation, then I'm glad to hear that! Is there a specific question or topic you'd like me to address now that we're on the same page? I'm here to help, so please feel free to ask me anything.",llm_general_fallback
+2025-06-19T16:03:08.863557,do you speak french,"Yes, I can assist you in French as well! I'm designed to communicate in multiple languages. How can I help you in French today? Would you like me to provide information on a specific topic or answer a question you have in mind? Please let me know!",llm_general_fallback
+2025-06-19T16:05:50.762748,Hi,Hello! How can I help you today?,intent
+2025-06-19T16:07:59.801337,what is the emergency?,"Based on the documents provided, there is no specific information about a current emergency. However, the documents do contain guidelines and procedures for responding to emergency situations. According to the CCTV policy and guidelines, emergency services may be granted access to CCTV control rooms and footage in connection with the investigation of an accident or in order to prevent injury or other damage to the health of a person, or serious loss of or damage to property. Additionally, the door station schema for the apartment building suggests a security system with alarm sensors and an indoor station, which could potentially be used in the event of an emergency.",rag_prompt_rapport_detection.txt
+2025-06-19T16:08:18.283771,give the facture,"Based on the provided document, there is no information about a camera with a specific factor. Here is the information about the cameras that are mentioned in the document:
+
+1. Community based CCTV scheme at Mullaghmatt/Cortolvin
+   - Purpose: to secure public order and safety and to deter illegal or anti-social behavior in public places
+   - Controlled by: Monaghan County Council
+
+2. CCTV systems at playgrounds and public carparks
+   - Purpose: securing public order and safety in public places
+   - Controlled by: Monaghan County Council
+
+3. CCTV systems on Monaghan County Council’s premises and buildings
+   - Purpose: protecting the security of Monaghan County Council’s property and helping to ensure the safety and security of all Monaghan County Council staff, visitors and its service users
+   - Controlled by: Monaghan County Council
+
+4. Webcam at the Diamond in Monaghan Town
+   - Purpose: to facilitate the public in viewing live stream public events which are advertised on social media or to view traffic online
+   - Controlled by: Monaghan County Council
+
+5. CCTV or any other surveillance technology controlled by an external company contracted by Monaghan County Council
+   - The external company must only act on the instructions of Monaghan County Council
+   - Monaghan County Council shall engage a processor to act on its behalf only if there is a written agreement in place and the processor provides sufficient guarantees and assurances that it will implement the appropriate technical and organizational measures required to comply with the GDPR or Part 5 of the Data Protection Act 2018.
+
+There is no mention of a camera with a specific factor in the document.",rag_prompt_fiche_produit.txt
+2025-06-19T17:08:42.559617,hi,Hello! How can I help you today?,intent
+2025-06-19T17:11:52.943132,Bonjoour,"Hello! I'm here to help. Your question seems to be a friendly greeting in French. In English, we say ""Hello"" or ""Hi"" to greet someone. Is there anything specific you'd like to ask or discuss? I'm here to assist you with general knowledge questions.",llm_general_fallback
+2025-06-19T17:12:31.602289,yes I know,"That's great! If you have any questions or need assistance with something, feel free to ask. I'm here to help with general knowledge inquiries.",llm_general_fallback
+2025-06-19T17:19:49.792836,hi,Hello! How can I help you today?,intent
+2025-06-19T17:20:02.226215,are you fine?,"Oui, je suis à votre disposition si vous avez une question précise.",rag_prompt_general_context.txt
+2025-06-19T17:38:14.157583,check it,"Je suis à votre disposition si vous avez une question précise. ""Check it"" ne semble pas être une question claire et spécifique.",rag_prompt_general_context.txt
+2025-06-19T17:38:41.087494,faire ça,"Désolé, mais la demande ""faire ça"" n'est pas assez précise pour que je puisse y répondre correctement. Pouvez-vous s'il vous plaît clarifier ce que vous souhaitez que je fasse en vous référant au contenu du fichier ""bilan_previsionnel_3_ans.webp"" ? Je suis là pour vous aider avec des informations et des explications détaillées.",llm_general_fallback
+2025-06-19T18:04:01.403557,Hi,Hello! How can I help you today?,intent
+2025-06-19T18:04:18.921186,As much as you can,"Je suis à votre disposition si vous avez une question précise.
+
+Je suis un assistant intelligent et polyvalent, prêt à répondre à vos questions de manière claire, professionnelle et synthétique. Cependant, il est important que la question posée soit spécifique et pertinente pour que je puisse y répondre de manière adéquate. Dans le cas contraire, n'hésitez pas à me poser une question plus précise et je me ferai un plaisir de vous fournir une réponse détaillée et éclairée.",rag_prompt_general_context.txt
+2025-06-19T18:05:00.491816,who is the president of Tunisia,"The document provided does not contain information about the president of Tunisia. The csv file contains data about storage with the first column being a location name, the second column being an amount of data, and the third and fourth columns being monetary costs. The text document is a policy for CCTV usage and does not contain specific information about individual cameras.",rag_prompt_fiche_produit.txt
+2025-06-19T18:05:28.552501,"based on general llm, who the president of france","I'm sorry for any confusion, but the documents provided do not contain information about the President of France. The relevant documents for your question about camera specifications should include terms such as ""resolution,"" ""angle of view,"" ""compatibility,"" ""vision nocturne,"" ""type (IP/analogique),"" and ""certifications."" However, the documents provided do not contain this type of information. They mainly discuss CCTV policy, guidelines, and a research paper on video analytics.",rag_prompt_fiche_produit.txt
+2025-06-19T18:34:44.294516,hello,Hello! How can I help you today?,intent
+2025-06-19T18:35:58.946676,ok,"Hello! It seems like you're ready to ask a question or start a conversation. I'm here to help, so please feel free to ask me anything. For example, I can provide information on a wide range of topics, help you manage your schedule, answer trivia questions, and much more. What can I assist you with today?",llm_general_fallback
+2025-06-19T18:36:09.313477,yes,"It sounds like you're saying ""yes"" to my offer for assistance. I'm glad to hear that! I'm here to help answer any questions you have or provide information on a topic of your choice. You could ask me about current events, science, technology, literature, or even language trivia. What would you like to know?",llm_general_fallback
+2025-06-19T18:36:26.679558,exactly,"It seems like you're asking me to be precise or clarify something. ""Exactly"" can be used in different contexts, so I want to make sure I provide the information you're looking for. Are you asking for a specific definition, an explanation of a concept, or help with something else? Please let me know, and I will do my best to provide a clear and helpful response.
+
+If you meant ""exactly"" as a way to confirm or agree with what I said earlier, you can ask me a question or request information on a particular topic, and I will be happy to help. 
+
+For example, you could ask:
+- What is the latest news in science and technology?
+- Can you explain the theory of relativity?
+- How does photosynthesis work in plants?
+- What are some interesting facts about the English language?
+
+Please let me know how I can help you today!",llm_general_fallback
+2025-06-19T18:41:21.407289,Hi,Hello! How can I help you today?,intent
+2025-06-19T18:44:49.174604,hi,Hello! How can I help you today?,intent
+2025-06-20T09:59:16.267453,hi,Hello! How can I help you today?,intent
+2025-06-20T10:00:00.187041,ok,"Hello! It seems like you're ready to ask a question or start a conversation. I'm here to help, so please feel free to ask me anything. For instance, I can provide information on a wide range of topics, help you manage your schedule, set reminders, and much more. What can I assist you with today?",llm_general_fallback
+2025-06-20T10:00:41.648387,yes,"I'm glad to hear that you're okay! Is there something specific you would like to know or discuss? I'm here to help with any questions or concerns you might have, so please feel free to ask anything. For example, I can share information on various topics, help you manage your schedule, set reminders, and much more. What can I assist you with today?",llm_general_fallback
+2025-06-20T10:01:00.873140,bonjour,Hello! How can I help you today?,intent
+2025-06-20T10:01:16.903494,no,"Based on the provided document, there is no specific camera mentioned with the exact criteria you are looking for. However, I can provide you with the general specification and usage of the different types of cameras used by Monaghan County Council.
+
+1. CCTV cameras on Monaghan County Council premises, playgrounds, public car parks, and community-based schemes:
+   - These cameras are used for securing public order and safety in public places, protecting the security of Monaghan County Council's property, and ensuring the safety and security of all Monaghan County Council staff, visitors, and its service users.
+   - The cameras are fixed or may facilitate a swivel action, and they operate 24 hours a day, seven days a week.
+   - The image quality allows identification of those individuals in the camera's area of coverage.
+   - Cameras are located at strategic points on Monaghan County Council premises, principally at the entrance and exit points of sites and buildings, and throughout the community.
+
+2. Handheld recording units:
+   - Used by the Traffic Wardens to issue tickets for pay parking and motor tax offences.
+   - Record photographic images of vehicles which can be uploaded to an IT system linked to the Vehicle Licencing Authority in Shannon.
+
+3. Webcam:
+   - Transmits images from the Diamond in Monaghan Town.
+   - The primary purpose is to facilitate the public in viewing live stream public events and traffic online.
+
+Please note that the document does not provide specific information on resolution, angle of view, compatibility, vision nocturne, type (IP/analogique), or certifications for each camera.",rag_prompt_fiche_produit.txt
+2025-06-20T10:15:17.914233,Bonjour,Bonjour! Comment puis-je vous aider aujourd'hui?,intent
+2025-06-20T10:15:31.855186,ça va,"I'm glad to hear that you're well! If you have any questions or need assistance with something, feel free to ask. I'm here to help!",llm_general_fallback
+2025-06-20T10:15:52.646314,hello again,Hello! How can I help you today?,intent

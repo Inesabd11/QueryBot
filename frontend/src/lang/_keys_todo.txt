@@ -1,0 +1,46 @@
+# List of translation keys to add for full UI internationalization
+# Add these to both en.ts and fr.ts
+
+sidebarNewConversation: "New conversation",
+sidebarUser: "User",
+sidebarOrg: "Acoba",
+sidebarSample1: "Production analysis Q4",
+sidebarSample1Preview: "Production data from last quarter...",
+sidebarSample2: "Predictive maintenance",
+sidebarSample2Preview: "Equipment maintenance planning...",
+sidebarSample3: "Incident report",
+sidebarSample3Preview: "Summary of critical incidents...",
+sidebarSample4: "Performance KPIs",
+sidebarSample4Preview: "Key performance indicators...",
+
+headerTitle: "QueryBot",
+
+quickAction1Title: "Production analysis",
+quickAction1Desc: "Production trends and metrics",
+quickAction1Query: "Show me the production trends for last month",
+quickAction2Title: "Predictive maintenance",
+quickAction2Desc: "Planning and forecasts",
+quickAction2Query: "When is the next maintenance scheduled?",
+quickAction3Title: "Incident report",
+quickAction3Desc: "Recent incident analysis",
+quickAction3Query: "Summarize last week's incidents",
+quickAction4Title: "Performance KPIs",
+quickAction4Desc: "Current key indicators",
+quickAction4Query: "Show current performance KPIs",
+
+inputPlaceholder: "Ask your question...",
+connectingPlaceholder: "Connecting...",
+
+pressEnter: "Press Enter to send",
+shiftEnter: "Shift + Enter for new line",
+shortcuts: "Shortcuts",
+shortcutsTitle: "Keyboard Shortcuts",
+shortcutSend: "Send message",
+shortcutNewline: "New line",
+shortcutShow: "Show shortcuts",
+shortcutClose: "Close modals",
+
+errorToast: "An error occurred",
+
+fileProcessing: "Processing files...",
+thinking: "Analysis in progress...",

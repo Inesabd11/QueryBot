@@ -1,41 +1,50 @@
-export type ThemeName = 'light' | 'blue-dark';
+export type ThemeName = "light" | "dark"
 
 export interface ThemeClasses {
-  bg: string;
-  border: string;
-  text: string;
-  input: string;
-  sidebar: string;
-  header: string;
-  messageBox: string;
-  chatBg: string;
+  bg: string
+  border: string
+  text: string
+  input: string
+  sidebar: string
+  header: string
+  messageBox: string
+  chatBg: string
 }
 
 export function getThemeClasses(theme: ThemeName): ThemeClasses {
   switch (theme) {
-    
-    case 'blue-dark':
+    case "light":
       return {
-        bg: 'bg-gradient-to-br from-[#000028] to-[#000014]',
-        border: 'border-[#3c50dc]/20',
-        text: 'text-[#f0f0f0]',
-        input: 'bg-[#141424] text-[#f0f0f0] placeholder-[#6a6a80]',
-        sidebar: 'bg-gradient-to-b from-[#000028] to-[#00003c] border-r border-[#3c50dc]/10',
-        header: 'bg-[#000028] border-b border-[#3c50dc]/20 text-[#f0f0f0]',
-        messageBox: 'bg-[#141424] border border-[#3c50dc]/20 focus-within:border-[#3c50dc]/60',
-        chatBg: 'bg-gradient-to-b from-[#0c0c18] to-[#141424]'
-      };
-    case 'light':
+        bg: "bg-white",
+        border: "border-gray-200",
+        text: "text-gray-900",
+        input: "bg-white text-gray-900 placeholder-gray-500 border-gray-300 focus:border-gray-400",
+        sidebar: "bg-gray-50 border-r border-gray-200",
+        header: "bg-white border-b border-gray-200 text-gray-900",
+        messageBox: "bg-white border border-gray-200 focus-within:border-gray-400",
+        chatBg: "bg-gray-50",
+      }
+    case "dark":
       return {
-        bg: 'bg-gradient-to-br from-[#f0f2ff] to-[#ffffff]',
-        border: 'border-[#3c50dc]/20',
-        text: 'text-[#212136]',
-        input: 'bg-white text-[#212136] placeholder-[#9090a0]',
-        sidebar: 'bg-gradient-to-b from-[#f0f2ff] to-[#e8eafd] border-r border-[#3c50dc]/10',
-        header: 'bg-[#f0f2ff] border-b border-[#3c50dc]/10 text-[#212136]',
-        messageBox: 'bg-white border border-[#3c50dc]/20 focus-within:border-[#3c50dc]/40',
-        chatBg: 'bg-gradient-to-b from-[#f8f9ff] to-[#f0f2ff]'
-      };
-    
+        bg: "bg-gray-900",
+        border: "border-gray-700",
+        text: "text-gray-100",
+        input: "bg-gray-800 text-gray-100 placeholder-gray-400 border-gray-600 focus:border-gray-500",
+        sidebar: "bg-gray-900 border-r border-gray-700",
+        header: "bg-gray-900 border-b border-gray-700 text-gray-100",
+        messageBox: "bg-gray-800 border border-gray-600 focus-within:border-gray-500",
+        chatBg: "bg-gray-800",
+      }
+    default:
+      return {
+        bg: "bg-white",
+        border: "border-gray-200",
+        text: "text-gray-900",
+        input: "bg-white text-gray-900 placeholder-gray-500 border-gray-300 focus:border-gray-400",
+        sidebar: "bg-gray-50 border-r border-gray-200",
+        header: "bg-white border-b border-gray-200 text-gray-900",
+        messageBox: "bg-white border border-gray-200 focus-within:border-gray-400",
+        chatBg: "bg-gray-50",
+      }
   }
 }

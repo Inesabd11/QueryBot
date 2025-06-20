@@ -59,3 +59,7 @@ export function getFileSize(bytes: number): string {
     return (bytes / 1073741824).toFixed(1) + " GB"
   }
 }
+
+export function cn(...classes: (string | undefined | false)[]) {
+  return classes.filter(Boolean).join(" ");
+}

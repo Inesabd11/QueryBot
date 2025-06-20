@@ -1,63 +1,97 @@
-import type React from "react"
-import type { ChatMessage } from "../hooks/useChat"
-import { BotMessageSquare, User, FileText } from "lucide-react"
+"use client"
+
+import React from "react"
+import { Bot, User, Copy, ThumbsUp, ThumbsDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface MessageBubbleProps {
-  message: ChatMessage
+  message: any
   showSenderIcon: boolean
   getThemeClasses: () => any
+  isStreaming?: boolean
+  t: any
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, showSenderIcon, getThemeClasses }) => {
-  const isUser = message.role === "user"
+export const MessageBubble = React.memo<MessageBubbleProps>(
+  ({ message, showSenderIcon, getThemeClasses, isStreaming = false, t }) => {
+    const isUser = message.sender === "user"
+    const isBot = message.sender === "bot"
 
-  return (
-    <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 items-end group`}>
-      {!isUser && showSenderIcon && (
-        <div
-          className={`
-            flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-2
-            ${getThemeClasses().bg} ${getThemeClasses().text}
-            transition-colors duration-300
-          `}
-        >
-          <BotMessageSquare className="h-5 w-5 text-white" />
-        </div>
-      )}
+    const handleCopy = () => {
+      navigator.clipboard.writeText(message.content)
+    }
 
+    return (
       <div
-        className={`
-          relative max-w-[80%] p-3 rounded-2xl shadow-sm
-          ${
-            isUser
-              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-sm"
-              : `${getThemeClasses().bg} ${getThemeClasses().text} ${getThemeClasses().border} rounded-tl-sm`
-          }
-          transform transition-all duration-200 ease-in-out hover:scale-[1.01]
-        `}
-      >
-        {message.type === "text" && <p className="whitespace-pre-wrap">{message.content}</p>}
-        {message.type === "image" && (
-          <img
-            src={message.metadata?.imageUrl || "/placeholder.svg"}
-            alt="Uploaded"
-            className="max-w-full rounded-md"
-          />
+        className={cn(
+          "group flex gap-4 px-4 py-6 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors",
+          isUser && "bg-blue-50/30 dark:bg-blue-900/20",
+          isBot && "bg-gradient-to-br from-purple-50 to-pink-50/30 dark:from-purple-900/20 dark:to-pink-900/20"
         )}
-        {message.type === "file" && (
-          <div className="flex items-center bg-opacity-10 bg-gray-100 dark:bg-gray-900 p-2 rounded-md">
-            <FileText className="mr-2 text-gray-500 dark:text-gray-300" size={16} />
-            <span className="text-sm truncate max-w-xs">{message.metadata?.fileName}</span>
-          </div> 
-        )} 
-      </div>
-
-      {isUser && showSenderIcon && (
-        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center ml-2 shadow-sm">
-          <User className="h-5 w-5 text-white" />
+      >
+        {/* Avatar */}
+        <div className="flex-shrink-0">
+          {showSenderIcon && (
+            <div
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center",
+                isUser ? "bg-blue-500 text-white" : "bg-gradient-to-br from-purple-500 to-pink-500 text-white",
+              )}
+            >
+              {isUser ? <User size={16} /> : <Bot size={16} />}
+            </div>
+          )}
         </div>
-      )}
-    </div> 
-  )
-}
- 
+
+        {/* Message Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-semibold text-sm">{isUser ? t.you : t.assistant}</span>
+            <span className="text-xs text-gray-500">
+              {new Date(Number.parseInt(message.timestamp)).toLocaleTimeString()}
+            </span>
+          </div>
+
+          <div
+            className={cn(
+              "prose prose-sm max-w-none dark:prose-invert",
+              "prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800",
+              "prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded",
+              isStreaming && "animate-pulse",
+            )}
+          >
+            {message.content}
+            {isStreaming && <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1" />}
+          </div>
+
+          {/* Message Actions */}
+          {!isUser && !isStreaming && (
+            <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={handleCopy}
+                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title={t.copyMessage}
+              >
+                <Copy size={14} />
+              </button>
+              <button
+                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title={t.goodResponse}
+              >
+                <ThumbsUp size={14} />
+              </button>
+              <button
+                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title={t.badResponse}
+              >
+                <ThumbsDown size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  },
+)
+
+MessageBubble.displayName = "MessageBubble"
